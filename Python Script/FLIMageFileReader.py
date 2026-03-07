@@ -6,8 +6,8 @@ Detailed parameters are stored in FileReader.State
 
 @author: Ryohei Yasuda
 """
-
-from libtiff import TIFF
+import tifffile as tiff
+#from libtiff import TIFF
 #pip install libtiff will install this. 
 import os
 import numpy as np
@@ -141,31 +141,38 @@ class FileReader:
     def read_imageFile(self, file_path, readImage = True):
         self.filename = file_path
         self.n_images = 1
-        tif = TIFF.open(file_path, mode = 'r')
-        header = tif.GetField('ImageDescription')
-        self.decode_header(header)
-        
-        if readImage:
-            if (os.path.splitext(file_path)[-1] == '.flim'):
-                flim = np.array(tif.read_image()).astype(np.ushort) #Sometimes image is stored in 8bit.
-                self.image.append(self.decode_FLIM(flim))
-                self.flim = True
-            else:
-                self.image.append(np.array(tif.read_image()))
-                self.flim = False
-                
-        self.currentPage += 1  
-        while tif.readdirectory():
-            header = tif.GetField('ImageDescription')
-            self.decode_header(header, False)
+
+        with tiff.TiffFile(file_path) as tif:
+
+            # First page
+            page = tif.pages[0]
+            header = page.description
+            self.decode_header(header)
 
             if readImage:
-                if self.flim:
-                    flim = np.array(tif.read_image()).astype(np.ushort) #Sometimes image is stored in 8bit.
-                    self.image.append(self.decode_FLIM(flim))            
+                if os.path.splitext(file_path)[-1] == '.flim':
+                    flim = page.asarray().astype(np.ushort)
+                    self.image.append(self.decode_FLIM(flim))
+                    self.flim = True
                 else:
-                    self.image.append(tif.read_image())
-                    
+                    self.image.append(page.asarray())
+                    self.flim = False
+
+            self.currentPage += 1
+
+            # Remaining pages
+            for page in tif.pages[1:]:
+
+                header = page.description
+                self.decode_header(header, False)
+
+                if readImage:
+                    if self.flim:
+                        flim = page.asarray().astype(np.ushort)
+                        self.image.append(self.decode_FLIM(flim))
+                    else:
+                        self.image.append(page.asarray())
+                            
             self.currentPage += 1    
             self.n_images = self.n_images + 1
             
