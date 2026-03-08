@@ -62,7 +62,10 @@ class FileReader:
             pass #print('failed: self.' + eq[0] + ' = ' + eq[1])
     
     def decode_header(self, header, new = True):
-        infos = header.decode('ASCII').split('\r\n')
+        if isinstance(header, bytes):
+            header = header.decode('ASCII')
+        infos = header.splitlines()
+        
         for info in infos:
             info = info.replace(";", "")
             #eq1 = info.split(' = ')
