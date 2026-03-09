@@ -31,7 +31,7 @@ iminfo.calculatePage(0, 0, 0, [2, iminfo.n_time[0]], intensityLimit, lifetimeLim
 x, y = iminfo.rgbLifetime.shape[:2]
 
 # load all files and make grayscale image
-group_lifetime = np.zeros((num_z, x, y, n_files))
+group_lifetime = np.zeros((num_z, n_files, x, y))
 for f, flim_file in enumerate(flim_files):
 
     iminfo = FileReader()
