@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import suite2p
 import torch
+import os
 
 lifetimeLimit = [1, 2]
 intensityLimit = [0, 50]
@@ -116,12 +117,15 @@ if data.dtype != np.int16:
     else:
         # General case: clip and cast
         data = data.astype(np.int16)# Write to binary
-data.tofile('raw_data.bin')
-f_raw = BinaryFile(Ly=Ly, Lx=Lx, filename='raw_data.bin')
+
+raw_bin_path = os.path.join(root_dir, 'raw_data.bin')
+reg_bin_path = os.path.join(root_dir, 'registered_data.bin')
+data.tofile(raw_bin_path)
+f_raw = BinaryFile(Ly=Ly, Lx=Lx, filename=raw_bin_path)
 
 # Create a binary file we will write our registered image to
 f_reg = suite2p.io.BinaryFile(
-    Ly=Ly, Lx=Lx, filename='registered_data.bin',
+    Ly=Ly, Lx=Lx, filename=reg_bin_path,
     n_frames = f_raw.shape[0], write=True
 ) # Set registered binary file to have same n_frames
 
