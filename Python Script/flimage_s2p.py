@@ -7,6 +7,7 @@ import numpy as np
 from pathlib import Path
 import re
 import suite2p
+import torch
 
 lifetimeLimit = [1, 2]
 intensityLimit = [0, 50]
@@ -63,11 +64,11 @@ for f, flim_file in enumerate(flim_files):
 
 
 
-plt.figure
-img = plt.imshow(grayImage) # lifetimeMap rgbLifetime
-#img.set_clim(4,10)
-plt.colorbar(img)
-plt.show()
+# plt.figure
+# img = plt.imshow(grayImage) # lifetimeMap rgbLifetime
+# #img.set_clim(4,10)
+# plt.colorbar(img)
+# plt.show()
 
 ##########
 
@@ -77,7 +78,7 @@ from suite2p import registration
 from suite2p.io import BinaryFile
 
 z_plane = 4
-data = np.squeeze(group_lifetime[z_plane, f, :, :])
+data = np.squeeze(group_lifetime[z_plane, :, :, :])
 
 fname = prefix
 n_time = n_files
@@ -100,16 +101,23 @@ settings['fs'] = 13 # sampling rate of recording, determines binning for cell de
 settings['tau'] = 1.25 # timescale of gcamp to use for deconvolution
 settings['device'] = 'cuda' if torch.cuda.is_available() else 'cpu' # use GPU if available for faster processing
 settings['registration']['reg_tif'] = True
-print(settings)
-     
+settings['registration']['nonrigid'] = False
+
 
 # Convert our example tif file into a binary file
-if data.dtype == np.uint16:
-    data = (data // 2).astype(np.int16)
-# Write to binary
+if data.dtype != np.int16:
+    if np.issubdtype(data.dtype, np.floating):
+        # Scale float (assumed 0-1) to int16 range
+        data = (data * 32767).astype(np.int16)
+    elif data.dtype == np.uint16:
+        data = (data // 2).astype(np.int16)
+    elif data.dtype == np.uint8:
+        data = (data.astype(np.int16) * 128)
+    else:
+        # General case: clip and cast
+        data = data.astype(np.int16)# Write to binary
 data.tofile('raw_data.bin')
 f_raw = BinaryFile(Ly=Ly, Lx=Lx, filename='raw_data.bin')
-print(f_raw.shape)
 
 # Create a binary file we will write our registered image to
 f_reg = suite2p.io.BinaryFile(
@@ -126,6 +134,12 @@ reg_outputs = registration.registration_wrapper(
   badframes=None, settings=settings["registration"],
   device=device
 )
+
+np.save(os.path.join(db['save_path0'], "reg_outputs.npy"), reg_outputs)
+
+reg_outputs['yoff']
+reg_outputs['xoff']
+
 f_reg.close()
 
      
