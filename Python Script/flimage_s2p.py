@@ -34,6 +34,9 @@ x, y = iminfo.rgbLifetime.shape[:2]
 
 # load all files and make grayscale image
 group_lifetime = np.zeros((num_z, n_files, x, y))
+group_rgblifetime = np.zeros((num_z, n_files, x, y))
+group_lifetimemap = np.zeros((num_z, n_files, x, y))
+group_intensity = np.zeros((num_z, n_files, x, y))
 for f, flim_file in enumerate(flim_files):
 
     iminfo = FileReader()
@@ -63,7 +66,9 @@ for f, flim_file in enumerate(flim_files):
 
 
         group_lifetime[z_plane, f, :, :] = grayImage
-
+        group_rgblifetime[z_plane, f, :, :] = iminfo.calculateRGBLifetimeMap(lifetimeLimit = [1.0, 2.0], intensityLimit = [3, 20])
+        group_lifetimemap[z_plane, f, :, :] = iminfo.lifetimeMap
+        group_intensity[z_plane, f, :, :] = iminfo.intensity
 
 
 plt.figure
@@ -73,7 +78,7 @@ plt.title('Gray image of last frame')
 plt.colorbar(img)
 plt.show()
 
-##########
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SUITE2P PORTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # s2p expects data to have dimensions: n_time, Ly, Lx
 
@@ -82,6 +87,7 @@ from suite2p.io import BinaryFile
 
 z_plane = 4
 data = np.squeeze(group_lifetime[z_plane, :, :, :])
+data_rgb = np.squeeze(group_lifetime[z_plane, :, :, :])
 
 fname = prefix
 n_time = n_files
@@ -141,11 +147,11 @@ reg_outputs = registration.registration_wrapper(
   device=device
 )
 
+f_reg.close()
+
 # np.save(os.path.join(db['save_path0'], "reg_outputs.npy"), reg_outputs)
 
-# reg_outputs['yoff']
-# reg_outputs['xoff']
-
+#### PLOT raw and S2P MC grayscale image
 
 # Compute both images
 img1 = np.squeeze(np.mean(data, axis=0))
@@ -169,7 +175,7 @@ plt.tight_layout()
 plt.show()
 
 
-f_reg.close()
+### APPLY offsets on raw data (for validation) and plot
 
 def apply_offsets(data_in, offsets_y, offsets_x):
     # data_in should be a frame * y * x 3D array
@@ -188,26 +194,34 @@ def apply_offsets(data_in, offsets_y, offsets_x):
 
     return data_mc
 
+
+def imshow_raw_mc(raw, mc, title_addon, cmap_='gray'):
+
+    img1 = raw
+    img2 = mc
+
+    vmin = np.nanpercentile([img1, img2], 2)
+    vmax = np.nanpercentile([img1, img2], 99)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    im1 = axes[0].imshow(img1, cmap=cmap_, vmin=vmin, vmax=vmax)
+    axes[0].set_title("Raw image: " + title_addon)
+    plt.colorbar(im1, ax=axes[0])
+
+    im2 = axes[1].imshow(img2, cmap=cmap_, vmin=vmin, vmax=vmax)
+    axes[1].set_title("Mean registered image: " + title_addon)
+    plt.colorbar(im2, ax=axes[1])
+
+    plt.tight_layout()
+    plt.show()
+
 manual_mc = apply_offsets(data, reg_outputs['yoff'], reg_outputs['xoff'])
+imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual_mc, axis=0)), 'grayscale')
 
-img1 = np.squeeze(np.nanmean(data, axis=0))
-img2 = np.squeeze(np.nanmean(manual_mc, axis=0))
-
-vmin = np.nanpercentile([img1, img2], 2)
-vmax = np.nanpercentile([img1, img2], 98)
-
-fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-
-im1 = axes[0].imshow(img1, cmap='gray', vmin=vmin, vmax=vmax)
-axes[0].set_title("Raw intensity image")
-plt.colorbar(im1, ax=axes[0])
-
-im2 = axes[1].imshow(img2, cmap='gray', vmin=vmin, vmax=vmax)
-axes[1].set_title("Mean registered intensity image")
-plt.colorbar(im2, ax=axes[1])
-
-plt.tight_layout()
-plt.show()
+### do the same but for RGBlifetime image
+manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
+imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), 'rgb', cmap_='turbo')
 
 dsa
 
