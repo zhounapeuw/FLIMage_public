@@ -51,6 +51,7 @@ for f, flim_file in enumerate(flim_files):
             lifetime_offset
         )
 
+        # reverse engineered calculateRGBLifetimeMap in FLIMageFileReader.py
         lifetime_norm = (iminfo.lifetimeMap - lifetimeLimit[0]) / (lifetimeLimit[1] - lifetimeLimit[0])
         lifetime_norm = 1 - lifetime_norm
         lifetime_norm = np.clip(lifetime_norm, 0, 1)
@@ -65,11 +66,12 @@ for f, flim_file in enumerate(flim_files):
 
 
 
-# plt.figure
-# img = plt.imshow(grayImage) # lifetimeMap rgbLifetime
-# #img.set_clim(4,10)
-# plt.colorbar(img)
-# plt.show()
+plt.figure
+img = plt.imshow(grayImage) # lifetimeMap rgbLifetime
+#img.set_clim(4,10)
+plt.title('Gray image of last frame')
+plt.colorbar(img)
+plt.show()
 
 ##########
 
@@ -139,12 +141,78 @@ reg_outputs = registration.registration_wrapper(
   device=device
 )
 
-np.save(os.path.join(db['save_path0'], "reg_outputs.npy"), reg_outputs)
+# np.save(os.path.join(db['save_path0'], "reg_outputs.npy"), reg_outputs)
 
-reg_outputs['yoff']
-reg_outputs['xoff']
+# reg_outputs['yoff']
+# reg_outputs['xoff']
+
+
+# Compute both images
+img1 = np.squeeze(np.mean(data, axis=0))
+img2 = reg_outputs['meanImg']
+
+# Set shared range using percentiles for saturation
+vmin = np.percentile([img1, img2], 2)
+vmax = np.percentile([img1, img2], 98)
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+im1 = axes[0].imshow(img1, cmap='gray', vmin=vmin, vmax=vmax)
+axes[0].set_title("Raw intensity image")
+plt.colorbar(im1, ax=axes[0])
+
+im2 = axes[1].imshow(img2, cmap='gray', vmin=vmin, vmax=vmax)
+axes[1].set_title("Mean registered intensity image")
+plt.colorbar(im2, ax=axes[1])
+
+plt.tight_layout()
+plt.show()
+
 
 f_reg.close()
+
+def apply_offsets(data_in, offsets_y, offsets_x):
+    # data_in should be a frame * y * x 3D array
+    # offsets should be a vector the same length as num frames
+    
+    data_mc = np.zeros_like(data_in)
+    
+    for i, (frame, dy, dx) in enumerate(zip(data_in, offsets_y, offsets_x)):
+        data_mc[i] = np.roll(np.roll(frame, -dy, axis=0), -dx, axis=1)
+    
+        # Zero out wrapped edges
+        if dy > 0: data_mc[i, :dy, :] = 0
+        elif dy < 0: data_mc[i, dy:, :] = 0
+        if dx > 0: data_mc[i, :, :dx] = 0
+        elif dx < 0: data_mc[i, :, dx:] = 0
+
+    return data_mc
+
+manual_mc = apply_offsets(data, reg_outputs['yoff'], reg_outputs['xoff'])
+
+img1 = np.squeeze(np.mean(data, axis=0))
+img2 = np.squeeze(np.mean(manual_mc, axis=0))
+
+vmin = np.percentile([img1, img2], 2)
+vmax = np.percentile([img1, img2], 98)
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+im1 = axes[0].imshow(img1, cmap='gray', vmin=vmin, vmax=vmax)
+axes[0].set_title("Raw intensity image")
+plt.colorbar(im1, ax=axes[0])
+
+im2 = axes[1].imshow(img2, cmap='gray', vmin=vmin, vmax=vmax)
+axes[1].set_title("Mean registered intensity image")
+plt.colorbar(im2, ax=axes[1])
+
+plt.tight_layout()
+plt.show()
+
+dsa
+
+
+
 
      
 
