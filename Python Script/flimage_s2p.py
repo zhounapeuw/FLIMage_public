@@ -181,10 +181,10 @@ def apply_offsets(data_in, offsets_y, offsets_x):
         data_mc[i] = np.roll(np.roll(frame, -dy, axis=0), -dx, axis=1)
     
         # Zero out wrapped edges
-        if dy > 0: data_mc[i, :dy, :] = 0
-        elif dy < 0: data_mc[i, dy:, :] = 0
-        if dx > 0: data_mc[i, :, :dx] = 0
-        elif dx < 0: data_mc[i, :, dx:] = 0
+        if dy > 0: data_mc[i, :dy, :] = np.nan
+        elif dy < 0: data_mc[i, dy:, :] = np.nan
+        if dx > 0: data_mc[i, :, :dx] = np.nan
+        elif dx < 0: data_mc[i, :, dx:] = np.nan
 
     return data_mc
 
