@@ -175,16 +175,16 @@ def apply_offsets(data_in, offsets_y, offsets_x):
     # data_in should be a frame * y * x 3D array
     # offsets should be a vector the same length as num frames
     
-    data_mc = np.zeros_like(data_in)
+    data_mc = np.full_like(data_in, np.nan, dtype=np.float32)
     
     for i, (frame, dy, dx) in enumerate(zip(data_in, offsets_y, offsets_x)):
         data_mc[i] = np.roll(np.roll(frame, -dy, axis=0), -dx, axis=1)
     
-        # Zero out wrapped edges
-        if dy > 0: data_mc[i, :dy, :] = np.nan
-        elif dy < 0: data_mc[i, dy:, :] = np.nan
-        if dx > 0: data_mc[i, :, :dx] = np.nan
-        elif dx < 0: data_mc[i, :, dx:] = np.nan
+        # NaN out wrapped edges
+        if dy > 0: data_mc[i, dy:, :] = np.nan
+        elif dy < 0: data_mc[i, :dy, :] = np.nan
+        if dx > 0: data_mc[i, :, dx:] = np.nan
+        elif dx < 0: data_mc[i, :, :dx] = np.nan
 
     return data_mc
 
