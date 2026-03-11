@@ -181,20 +181,20 @@ def apply_offsets(data_in, offsets_y, offsets_x):
         data_mc[i] = np.roll(np.roll(frame, -dy, axis=0), -dx, axis=1)
     
         # NaN out wrapped edges
-        if dy > 0: data_mc[i, dy:, :] = np.nan
-        elif dy < 0: data_mc[i, :dy, :] = np.nan
-        if dx > 0: data_mc[i, :, dx:] = np.nan
-        elif dx < 0: data_mc[i, :, :dx] = np.nan
+        if dy > 0: data_mc[i, -dy:, :] = np.nan
+        elif dy < 0: data_mc[i, :-dy, :] = np.nan
+        if dx > 0: data_mc[i, :, -dx:] = np.nan
+        elif dx < 0: data_mc[i, :, :-dx] = np.nan
 
     return data_mc
 
 manual_mc = apply_offsets(data, reg_outputs['yoff'], reg_outputs['xoff'])
 
-img1 = np.squeeze(np.mean(data, axis=0))
-img2 = np.squeeze(np.mean(manual_mc, axis=0))
+img1 = np.squeeze(np.nanmean(data, axis=0))
+img2 = np.squeeze(np.nanmean(manual_mc, axis=0))
 
-vmin = np.percentile([img1, img2], 2)
-vmax = np.percentile([img1, img2], 98)
+vmin = np.nanpercentile([img1, img2], 2)
+vmax = np.nanpercentile([img1, img2], 98)
 
 fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
