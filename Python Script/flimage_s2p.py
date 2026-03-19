@@ -10,6 +10,9 @@ import suite2p
 import torch
 import os
 
+import matplotlib.animation as animation
+from matplotlib.colors import Normalize
+
 lifetimeLimit = [1, 2]
 intensityLimit = [0, 50]
 z_plane = 4
@@ -63,7 +66,6 @@ for f, flim_file in enumerate(flim_files):
         intensity_norm = np.clip(intensity_norm, 0, 1)
 
         grayImage = lifetime_norm * intensity_norm
-
 
         group_lifetime[z_plane, f, :, :] = grayImage
         group_rgblifetime[z_plane, f, :, :] = iminfo.calculateRGBLifetimeMap(lifetimeLimit = [1.0, 2.0], intensityLimit = [3, 20])
@@ -165,11 +167,14 @@ fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
 im1 = axes[0].imshow(img1, cmap='gray', vmin=vmin, vmax=vmax)
 axes[0].set_title("Raw intensity image")
-plt.colorbar(im1, ax=axes[0])
+plt.colorbar(im1, ax=axes[0], label='Intensity')
 
 im2 = axes[1].imshow(img2, cmap='gray', vmin=vmin, vmax=vmax)
-axes[1].set_title("Mean registered intensity image")
-plt.colorbar(im2, ax=axes[1])
+axes[1].set_title("Motion-corrected intensity image")
+plt.colorbar(im2, ax=axes[1], label='Intensity')
+
+axes[0].set_axis_off()
+axes[1].set_axis_off()
 
 plt.tight_layout()
 plt.show()
@@ -178,7 +183,7 @@ plt.show()
 ### APPLY offsets on raw data (for validation) and plot
 
 def apply_offsets(data_in, offsets_y, offsets_x):
-    # data_in should be a frame * y * x 3D array
+    # data_in should be a (frame * y * x) 3D array
     # offsets should be a vector the same length as num frames
     
     data_mc = np.full_like(data_in, np.nan, dtype=np.float32)
@@ -195,7 +200,7 @@ def apply_offsets(data_in, offsets_y, offsets_x):
     return data_mc
 
 
-def imshow_raw_mc(raw, mc, title_addon, cmap_='gray'):
+def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray'):
 
     img1 = raw
     img2 = mc
@@ -207,29 +212,77 @@ def imshow_raw_mc(raw, mc, title_addon, cmap_='gray'):
 
     im1 = axes[0].imshow(img1, cmap=cmap_, vmin=vmin, vmax=vmax)
     axes[0].set_title("Raw image: " + title_addon)
-    plt.colorbar(im1, ax=axes[0])
+    plt.colorbar(im1, ax=axes[0], label=cbar_label)
 
     im2 = axes[1].imshow(img2, cmap=cmap_, vmin=vmin, vmax=vmax)
-    axes[1].set_title("Mean registered image: " + title_addon)
-    plt.colorbar(im2, ax=axes[1])
+    axes[1].set_title("Manually offset image: " + title_addon)
+    plt.colorbar(im2, ax=axes[1], label=cbar_label)
+
+    axes[0].set_axis_off()
+    axes[1].set_axis_off()
 
     plt.tight_layout()
     plt.show()
 
 manual_mc = apply_offsets(data, reg_outputs['yoff'], reg_outputs['xoff'])
-imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual_mc, axis=0)), 'grayscale')
+imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual_mc, axis=0)), 'grayscale', cbar_label='Intensity')
 
 ### do the same but for RGBlifetime image
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
-imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), 'rgb', cmap_='turbo')
-
-dsa
+imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), 'rgb', cbar_label='RGB Lifetime', cmap_='turbo')
 
 
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, FFMpegWriter
 
+# data_rgb and manual_mc_rgb already exist
+# shape: (time, y, x)
 
-     
+T = data_rgb.shape[0]
 
-     
+# global color limits so both videos share the same scale
+vmin = np.nanmin([data_rgb.min(), manual_mc_rgb.min()])
+vmax = np.nanmax([data_rgb.max(), manual_mc_rgb.max()])
+
+fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+
+ax1, ax2 = axes
+
+# remove axes
+for ax in axes:
+    ax.axis("off")
+
+# initial frames
+im1 = ax1.imshow(data_rgb[0], cmap='turbo')
+im2 = ax2.imshow(manual_mc_rgb[0], cmap='turbo')
+
+# titles
+ax1.set_title("Raw")
+ax2.set_title("MC Manually Offset")
+
+# colorbar shared
+cbar = fig.colorbar(im2, ax=axes, fraction=0.046, pad=0.04)
+cbar.set_label("RGB lifetime")
+
+def update(frame):
+    im1.set_data(data_rgb[frame])
+    im2.set_data(manual_mc_rgb[frame])
+    return [im1, im2]
+
+anim = FuncAnimation(
+    fig,
+    update,
+    frames=T,
+    interval=1000/15,  # for preview speed
+    blit=True
+)
+
+# save video
+writer = FFMpegWriter(fps=15)
+anim.save(os.path.join(root_dir,"rgb_lifetime_comparison.mp4"), writer=writer, dpi=200)
+
+plt.close(fig)
+
 
 
