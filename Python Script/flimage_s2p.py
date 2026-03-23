@@ -12,6 +12,12 @@ import os
 
 import matplotlib.animation as animation
 from matplotlib.colors import Normalize
+import matplotlib.colors as mcolors
+
+lifetimeLimit = [1.4, 2]
+intensityLimit = [0, 15]
+z_plane = 4
+lifetime_offset = 1
 
 
 def to_int16(
@@ -71,10 +77,67 @@ def to_int16(
     else:
         raise TypeError(f"Unsupported dtype: {data.dtype}")
 
-lifetimeLimit = [1, 2]
-intensityLimit = [0, 50]
-z_plane = 4
-lifetime_offset = 1
+
+### APPLY offsets on raw data (for validation) and plot
+def apply_offsets(data_in, offsets_y, offsets_x):
+    # data_in should be a (frame * y * x) 3D array
+    # offsets should be a vector the same length as num frames
+    
+    data_mc = np.full_like(data_in, np.nan, dtype=np.float32)
+    
+    for i, (frame, dy, dx) in enumerate(zip(data_in, offsets_y, offsets_x)):
+        data_mc[i] = np.roll(np.roll(frame, -dy, axis=0), -dx, axis=1)
+    
+        # NaN out wrapped edges
+        if dy > 0: data_mc[i, -dy:, :] = np.nan
+        elif dy < 0: data_mc[i, :-dy, :] = np.nan
+        if dx > 0: data_mc[i, :, -dx:] = np.nan
+        elif dx < 0: data_mc[i, :, :-dx] = np.nan
+
+    return data_mc
+
+
+def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray', lifetime_limit=None):
+    """
+    Args:
+        raw:            Raw image (intensity: 2D array, lifetime: RGB 3D array)
+        mc:             Motion-corrected image (same format as raw)
+        title_addon:    String appended to subplot titles
+        cbar_label:     Colorbar label
+        cmap_:          Colormap for intensity images, or a LinearSegmentedColormap for lifetime
+        lifetime_limit: If provided, treats data as lifetime RGB and uses ScalarMappable
+                        for the colorbar with range [min, max] in ns
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    if lifetime_limit is not None:
+        sm = plt.cm.ScalarMappable(
+            cmap=cmap_,
+            norm=mcolors.Normalize(vmin=lifetime_limit[0], vmax=lifetime_limit[1])
+        )
+        axes[0].imshow(raw)
+        plt.colorbar(sm, ax=axes[0], label=cbar_label or "Lifetime (ns)")
+
+        axes[1].imshow(mc)
+        plt.colorbar(sm, ax=axes[1], label=cbar_label or "Lifetime (ns)")
+
+    else:
+        vmin = np.nanpercentile([raw, mc], 2)
+        vmax = np.nanpercentile([raw, mc], 99)
+
+        im1 = axes[0].imshow(raw, cmap=cmap_, vmin=vmin, vmax=vmax)
+        plt.colorbar(im1, ax=axes[0], label=cbar_label)
+
+        im2 = axes[1].imshow(mc, cmap=cmap_, vmin=vmin, vmax=vmax)
+        plt.colorbar(im2, ax=axes[1], label=cbar_label)
+
+    axes[0].set_title("Raw image: " + title_addon)
+    axes[1].set_title("Manually offset image: " + title_addon)
+    axes[0].set_axis_off()
+    axes[1].set_axis_off()
+
+    plt.tight_layout()
+    plt.show()
 
 # user select file to load and get root directory
 file_path = filedialog.askopenfilename()
@@ -95,7 +158,7 @@ x, y = iminfo.rgbLifetime.shape[:2]
 
 # load all files and make grayscale image
 group_lifetime = np.zeros((num_z, n_files, x, y))
-group_rgblifetime = np.zeros((num_z, n_files, x, y))
+group_rgblifetime = np.zeros((num_z, n_files, x, y, 3))
 group_lifetimemap = np.zeros((num_z, n_files, x, y))
 group_intensity = np.zeros((num_z, n_files, x, y))
 for f, flim_file in enumerate(flim_files):
@@ -126,7 +189,8 @@ for f, flim_file in enumerate(flim_files):
         grayImage = lifetime_norm * intensity_norm
 
         group_lifetime[z_plane, f, :, :] = grayImage
-        group_rgblifetime[z_plane, f, :, :] = iminfo.calculateRGBLifetimeMap(lifetimeLimit = [1.0, 2.0], intensityLimit = [3, 20])
+        iminfo.calculateRGBLifetimeMap(lifetimeLimit = lifetimeLimit, intensityLimit = intensityLimit)
+        group_rgblifetime[z_plane, f, :, :, :] = iminfo.rgbLifetime
         group_lifetimemap[z_plane, f, :, :] = iminfo.lifetimeMap
         group_intensity[z_plane, f, :, :] = iminfo.intensity
 
@@ -147,7 +211,7 @@ from suite2p.io import BinaryFile
 
 z_plane = 4
 data = np.squeeze(group_intensity[z_plane, :, :, :])
-data_rgb = np.squeeze(group_lifetime[z_plane, :, :, :])
+data_rgb = np.squeeze(group_rgblifetime[z_plane, :, :, :, :]) # dims: z_plane, frame, y, x, RBG_chan
 
 fname = prefix
 n_time = n_files
@@ -223,58 +287,14 @@ axes[1].set_axis_off()
 plt.tight_layout()
 plt.show()
 
-
-### APPLY offsets on raw data (for validation) and plot
-
-def apply_offsets(data_in, offsets_y, offsets_x):
-    # data_in should be a (frame * y * x) 3D array
-    # offsets should be a vector the same length as num frames
-    
-    data_mc = np.full_like(data_in, np.nan, dtype=np.float32)
-    
-    for i, (frame, dy, dx) in enumerate(zip(data_in, offsets_y, offsets_x)):
-        data_mc[i] = np.roll(np.roll(frame, -dy, axis=0), -dx, axis=1)
-    
-        # NaN out wrapped edges
-        if dy > 0: data_mc[i, -dy:, :] = np.nan
-        elif dy < 0: data_mc[i, :-dy, :] = np.nan
-        if dx > 0: data_mc[i, :, -dx:] = np.nan
-        elif dx < 0: data_mc[i, :, :-dx] = np.nan
-
-    return data_mc
-
-
-def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray'):
-
-    img1 = raw
-    img2 = mc
-
-    vmin = np.nanpercentile([img1, img2], 2)
-    vmax = np.nanpercentile([img1, img2], 99)
-
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-
-    im1 = axes[0].imshow(img1, cmap=cmap_, vmin=vmin, vmax=vmax)
-    axes[0].set_title("Raw image: " + title_addon)
-    plt.colorbar(im1, ax=axes[0], label=cbar_label)
-
-    im2 = axes[1].imshow(img2, cmap=cmap_, vmin=vmin, vmax=vmax)
-    axes[1].set_title("Manually offset image: " + title_addon)
-    plt.colorbar(im2, ax=axes[1], label=cbar_label)
-
-    axes[0].set_axis_off()
-    axes[1].set_axis_off()
-
-    plt.tight_layout()
-    plt.show()
+#~~~~~~~~~ Plot raw and manually-corrected (using s2p offsets) images ~~~~~~~~~~~~
 
 manual_mc = apply_offsets(data, reg_outputs['yoff'], reg_outputs['xoff'])
-imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual_mc, axis=0)), 'grayscale', cbar_label='Intensity')
+imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual_mc, axis=0)), 'Intensity', cbar_label='Intensity', cmap_='gray')
 
 ### do the same but for RGBlifetime image
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
-imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), 'rgb', cbar_label='RGB Lifetime', cmap_='turbo')
-
+imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
 
 import numpy as np
 import matplotlib.pyplot as plt
