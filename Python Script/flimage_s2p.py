@@ -97,7 +97,7 @@ def apply_offsets(data_in, offsets_y, offsets_x):
     return data_mc
 
 
-def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray', lifetime_limit=None):
+def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray', lifetime_limit=None, invert_cmap=False):
     """
     Args:
         raw:            Raw image (intensity: 2D array, lifetime: RGB 3D array)
@@ -107,7 +107,18 @@ def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray', lifetime_li
         cmap_:          Colormap for intensity images, or a LinearSegmentedColormap for lifetime
         lifetime_limit: If provided, treats data as lifetime RGB and uses ScalarMappable
                         for the colorbar with range [min, max] in ns
+        invert_cmap:    If True, reverses the colormap direction (e.g. so lower lifetime = red).
+                        For lifetime images, also flips the RGB channels of the image to match.
     """
+    if invert_cmap:
+        if isinstance(cmap_, str):
+            cmap_ = cmap_ + "_r"
+        else:
+            cmap_ = cmap_.reversed()
+        if lifetime_limit is not None:
+            raw = raw[..., ::-1].copy()
+            mc = mc[..., ::-1].copy()
+
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
     if lifetime_limit is not None:
@@ -116,10 +127,14 @@ def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray', lifetime_li
             norm=mcolors.Normalize(vmin=lifetime_limit[0], vmax=lifetime_limit[1])
         )
         axes[0].imshow(raw)
-        plt.colorbar(sm, ax=axes[0], label=cbar_label or "Lifetime (ns)")
+        cbar1 = plt.colorbar(sm, ax=axes[0], label=cbar_label or "Lifetime (ns)")
 
         axes[1].imshow(mc)
-        plt.colorbar(sm, ax=axes[1], label=cbar_label or "Lifetime (ns)")
+        cbar2 = plt.colorbar(sm, ax=axes[1], label=cbar_label or "Lifetime (ns)")
+
+        if invert_cmap:
+            cbar1.ax.invert_yaxis()
+            cbar2.ax.invert_yaxis()
 
     else:
         vmin = np.nanpercentile([raw, mc], 2)
@@ -294,7 +309,7 @@ imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual
 
 ### do the same but for RGBlifetime image
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
-imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
+imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit, invert_cmap=True)
 
 import numpy as np
 import matplotlib.pyplot as plt
