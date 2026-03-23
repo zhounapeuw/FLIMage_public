@@ -13,6 +13,64 @@ import os
 import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 
+
+def to_int16(
+    data: np.ndarray,
+    input_range: tuple = None,
+) -> np.ndarray:
+    """
+    Convert any numpy array to int16, with scaling appropriate for 2-photon imaging.
+
+    Args:
+        data:         Input array of any dtype
+        input_range:  (min, max) to use for float normalization. If None, auto-detects
+                      whether data is pre-normalized to [-1, 1], otherwise uses actual min/max.
+    Returns:
+        int16 array
+    Raises:
+        ValueError: If the input array contains NaNs
+        TypeError:  If the input dtype is not supported
+    """
+    INT16_MIN, INT16_MAX = -32768, 32767
+
+    if data.dtype == np.int16:
+        return data.copy()
+
+    # --- NaN check ---
+    if np.issubdtype(data.dtype, np.floating) and np.isnan(data).any():
+        raise ValueError("Input array contains NaNs. Please clean your data before converting.")
+
+    # --- Float types ---
+    if np.issubdtype(data.dtype, np.floating):
+        if input_range is not None:
+            low, high = input_range
+        elif data.min() >= -1.0 and data.max() <= 1.0:
+            low, high = -1.0, 1.0
+        else:
+            low, high = data.min(), data.max()
+
+        normalized = (data - low) / (high - low)
+        scaled = np.round(normalized * INT16_MAX).clip(INT16_MIN, INT16_MAX)
+        return scaled.astype(np.int16)
+
+    # --- Unsigned integer types ---
+    elif np.issubdtype(data.dtype, np.unsignedinteger):
+        info = np.iinfo(data.dtype)
+        scaled = np.round(data.astype(np.float64) * (INT16_MAX / info.max))
+        return scaled.clip(0, INT16_MAX).astype(np.int16)
+
+    # --- Signed integer types ---
+    elif np.issubdtype(data.dtype, np.signedinteger):
+        info = np.iinfo(data.dtype)
+        if info.min == INT16_MIN and info.max == INT16_MAX:
+            return data.astype(np.int16)
+        normalized = (data.astype(np.float64) - info.min) / (info.max - info.min)
+        scaled = np.round(normalized * (INT16_MAX - INT16_MIN) + INT16_MIN)
+        return scaled.clip(INT16_MIN, INT16_MAX).astype(np.int16)
+
+    else:
+        raise TypeError(f"Unsupported dtype: {data.dtype}")
+
 lifetimeLimit = [1, 2]
 intensityLimit = [0, 50]
 z_plane = 4
@@ -88,7 +146,7 @@ from suite2p import registration
 from suite2p.io import BinaryFile
 
 z_plane = 4
-data = np.squeeze(group_lifetime[z_plane, :, :, :])
+data = np.squeeze(group_intensity[z_plane, :, :, :])
 data_rgb = np.squeeze(group_lifetime[z_plane, :, :, :])
 
 fname = prefix
@@ -114,23 +172,9 @@ settings['device'] = 'cuda' if torch.cuda.is_available() else 'cpu' # use GPU if
 settings['registration']['reg_tif'] = True
 settings['registration']['nonrigid'] = False
 
-
-# Convert our example tif file into a binary file
-if data.dtype != np.int16:
-    if np.issubdtype(data.dtype, np.floating):
-        # Scale float (assumed 0-1) to int16 range
-        data = (data * 32767).astype(np.int16)
-    elif data.dtype == np.uint16:
-        data = (data // 2).astype(np.int16)
-    elif data.dtype == np.uint8:
-        data = (data.astype(np.int16) * 128)
-    else:
-        # General case: clip and cast
-        data = data.astype(np.int16)# Write to binary
-
 raw_bin_path = os.path.join(root_dir, 'raw_data.bin')
 reg_bin_path = os.path.join(root_dir, 'registered_data.bin')
-data.tofile(raw_bin_path)
+to_int16(data).tofile(raw_bin_path)
 f_raw = BinaryFile(Ly=Ly, Lx=Lx, filename=raw_bin_path)
 
 # Create a binary file we will write our registered image to
@@ -156,7 +200,7 @@ f_reg.close()
 #### PLOT raw and S2P MC grayscale image
 
 # Compute both images
-img1 = np.squeeze(np.mean(data, axis=0))
+img1 = np.squeeze(np.mean(to_int16(data), axis=0))
 img2 = reg_outputs['meanImg']
 
 # Set shared range using percentiles for saturation
@@ -167,7 +211,7 @@ fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
 im1 = axes[0].imshow(img1, cmap='gray', vmin=vmin, vmax=vmax)
 axes[0].set_title("Raw intensity image")
-plt.colorbar(im1, ax=axes[0], label='Intensity')
+plt.colorbar(im1, ax=axes[0], label='Intensity (int16)')
 
 im2 = axes[1].imshow(img2, cmap='gray', vmin=vmin, vmax=vmax)
 axes[1].set_title("Motion-corrected intensity image")
