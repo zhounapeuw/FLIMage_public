@@ -15,10 +15,9 @@ from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
 lifetimeLimit = [1.4, 2]
-intensityLimit = [0, 15]
+intensityLimit = [3, 8]
 z_plane = 4
-lifetime_offset = 1
-
+lifetime_offset = 1.1
 
 def to_int16(
     data: np.ndarray,
@@ -97,59 +96,87 @@ def apply_offsets(data_in, offsets_y, offsets_x):
     return data_mc
 
 
-def imshow_raw_mc(raw, mc, title_addon, cbar_label='', cmap_='gray', lifetime_limit=None, invert_cmap=False):
+def imshow_raw_mc(raw, mc, title_addon, cbar_label='',
+                  cmap_='gray', lifetime_limit=None, invert_cmap=False):
     """
+    Display raw and motion-corrected images side by side with colorbars.
+
     Args:
-        raw:            Raw image (intensity: 2D array, lifetime: RGB 3D array)
+        raw:            Raw image (2D intensity or RGB 3D array for lifetime)
         mc:             Motion-corrected image (same format as raw)
         title_addon:    String appended to subplot titles
         cbar_label:     Colorbar label
-        cmap_:          Colormap for intensity images, or a LinearSegmentedColormap for lifetime
-        lifetime_limit: If provided, treats data as lifetime RGB and uses ScalarMappable
-                        for the colorbar with range [min, max] in ns
-        invert_cmap:    If True, reverses the colormap direction (e.g. so lower lifetime = red).
-                        For lifetime images, also flips the RGB channels of the image to match.
+        cmap_:          Colormap for intensity images
+        lifetime_limit: If provided, treats images as lifetime RGB and uses fake colorbar
+        invert_cmap:    If True, reverses colormap direction (also flips RGB channels for lifetime)
     """
-    if invert_cmap:
-        if isinstance(cmap_, str):
-            cmap_ = cmap_ + "_r"
-        else:
-            cmap_ = cmap_.reversed()
-        if lifetime_limit is not None:
-            raw = raw[..., ::-1].copy()
-            mc = mc[..., ::-1].copy()
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    from matplotlib import gridspec
 
+    # --------------------------------------------------
+    # Create 4-axis layout: [raw | cbar | mc | cbar]
+    # --------------------------------------------------
+    fig = plt.figure(figsize=(10, 4))
+    gs = gridspec.GridSpec(1, 4, width_ratios=[20, 1, 20, 1], figure=fig)
+
+    ax_raw   = fig.add_subplot(gs[0, 0])
+    ax_cbar1 = fig.add_subplot(gs[0, 1])
+    ax_mc    = fig.add_subplot(gs[0, 2])
+    ax_cbar2 = fig.add_subplot(gs[0, 3])
+
+    # --------------------------------------------------
+    # Lifetime mode: RGB + fake colorbar
+    # --------------------------------------------------
     if lifetime_limit is not None:
-        sm = plt.cm.ScalarMappable(
-            cmap=cmap_,
-            norm=mcolors.Normalize(vmin=lifetime_limit[0], vmax=lifetime_limit[1])
-        )
-        axes[0].imshow(raw)
-        cbar1 = plt.colorbar(sm, ax=axes[0], label=cbar_label or "Lifetime (ns)")
-
-        axes[1].imshow(mc)
-        cbar2 = plt.colorbar(sm, ax=axes[1], label=cbar_label or "Lifetime (ns)")
-
         if invert_cmap:
-            cbar1.ax.invert_yaxis()
-            cbar2.ax.invert_yaxis()
+            raw = raw[..., ::-1].copy()
+            mc  = mc[..., ::-1].copy()
 
+        # --- Plot images ---
+        ax_raw.imshow(raw)
+        ax_mc.imshow(mc)
+
+        for ax in [ax_raw, ax_mc]:
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+        # --- Colormap subset like MATLAB jet(64)[9:56] ---
+        cmap = plt.cm.jet(np.linspace(0, 1, 64))[:, :3]
+        cmap2 = cmap[8:56, :]
+        if invert_cmap:
+            cmap2 = cmap2[::-1]
+
+        cmap_img = cmap2.reshape((cmap2.shape[0], 1, 3))
+
+        # --- Draw colorbars as images ---
+        for ax_cbar in [ax_cbar1, ax_cbar2]:
+            ax_cbar.imshow(cmap_img, aspect='auto')
+            ax_cbar.set_xticks([])
+            ax_cbar.set_ylim(0.5, cmap2.shape[0] + 0.5)
+            ax_cbar.set_yticks([0, cmap2.shape[0]-1])
+            ax_cbar.set_yticklabels(lifetime_limit[::-1])
+            ax_cbar.yaxis.tick_right()
+
+    # --------------------------------------------------
+    # Intensity mode
+    # --------------------------------------------------
     else:
         vmin = np.nanpercentile([raw, mc], 2)
         vmax = np.nanpercentile([raw, mc], 99)
 
-        im1 = axes[0].imshow(raw, cmap=cmap_, vmin=vmin, vmax=vmax)
-        plt.colorbar(im1, ax=axes[0], label=cbar_label)
+        im1 = ax_raw.imshow(raw, cmap=cmap_, vmin=vmin, vmax=vmax)
+        plt.colorbar(im1, ax=ax_raw, label=cbar_label)
 
-        im2 = axes[1].imshow(mc, cmap=cmap_, vmin=vmin, vmax=vmax)
-        plt.colorbar(im2, ax=axes[1], label=cbar_label)
+        im2 = ax_mc.imshow(mc, cmap=cmap_, vmin=vmin, vmax=vmax)
+        plt.colorbar(im2, ax=ax_mc, label=cbar_label)
 
-    axes[0].set_title("Raw image: " + title_addon)
-    axes[1].set_title("Manually offset image: " + title_addon)
-    axes[0].set_axis_off()
-    axes[1].set_axis_off()
+        # Remove unused colorbar axes
+        ax_cbar1.remove()
+        ax_cbar2.remove()
+
+    # --- Titles ---
+    ax_raw.set_title("Raw image: " + title_addon)
+    ax_mc.set_title("Manually offset image: " + title_addon)
 
     plt.tight_layout()
     plt.show()
@@ -224,7 +251,6 @@ plt.show()
 from suite2p import registration
 from suite2p.io import BinaryFile
 
-z_plane = 4
 data = np.squeeze(group_intensity[z_plane, :, :, :])
 data_rgb = np.squeeze(group_rgblifetime[z_plane, :, :, :, :]) # dims: z_plane, frame, y, x, RBG_chan
 
