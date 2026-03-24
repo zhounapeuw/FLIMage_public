@@ -18,6 +18,8 @@ lifetimeLimit = [1.4, 2]
 intensityLimit = [3, 8]
 z_plane = 4
 lifetime_offset = 1.1
+spc_start_idx = 2
+single_file = True
 
 def to_int16(
     data: np.ndarray,
@@ -186,16 +188,23 @@ file_path = filedialog.askopenfilename()
 p = Path(file_path)
 root_dir = p.parent
 
-# based on selected file, find similarly named .flim files
-prefix = re.sub(r'\d+\.flim$', '', p.name) # remove trailing digits before .flim to make template to find files
-flim_files = sorted(root_dir.glob(prefix + "*.flim"))
+if single_file:
+    flim_files = [p]
+else:
+    # based on selected file, find similarly named .flim files
+    prefix = re.sub(r'\d+\.flim$', '', p.name) # remove trailing digits before .flim to make template to find files
+    flim_files = sorted(root_dir.glob(prefix + "*.flim"))
+
 n_files = len(flim_files)
 
 # load first file to get num planes and x/y dims
 iminfo = FileReader()
 iminfo.read_imageFile(str(flim_files[0]), True)
-num_z = len(iminfo.acqTime)
-iminfo.calculatePage(0, 0, 0, [2, iminfo.n_time[0]], intensityLimit, lifetimeLimit, lifetime_offset)
+if iminfo.ZStack:
+    num_z = len(iminfo.acqTime)
+else:
+    num_z = 1
+iminfo.calculatePage(0, 0, 0, [spc_start_idx, iminfo.n_time[0]], intensityLimit, lifetimeLimit, lifetime_offset)
 x, y = iminfo.rgbLifetime.shape[:2]
 
 # load all files and make grayscale image
@@ -214,7 +223,7 @@ for f, flim_file in enumerate(flim_files):
             z_plane,
             0,
             0,
-            [2, iminfo.n_time[0]],
+            [spc_start_idx, iminfo.n_time[0]],
             intensityLimit,
             lifetimeLimit,
             lifetime_offset
