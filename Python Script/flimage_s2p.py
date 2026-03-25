@@ -22,10 +22,10 @@ import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
-lifetimeLimit = [1.6, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [3, 300]
-z_plane = 1
-single_file = True
+lifetimeLimit = [3, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = [3, 45]
+z_plane_to_analyze = 7
+single_file = False
 
 
 # semi-static vars
@@ -111,85 +111,67 @@ def apply_offsets(data_in, offsets_y, offsets_x):
 
 def imshow_raw_mc(raw, mc, title_addon, cbar_label='',
                   cmap_='gray', lifetime_limit=None):
-    """
-    Display raw and motion-corrected images side by side with colorbars.
-
-    Args:
-        raw:            Raw image (2D intensity or RGB 3D array for lifetime)
-        mc:             Motion-corrected image (same format as raw)
-        title_addon:    String appended to subplot titles
-        cbar_label:     Colorbar label
-        cmap_:          Colormap for intensity images
-        lifetime_limit: If provided, treats images as lifetime RGB and uses fake colorbar
-    """
-
-    from matplotlib import gridspec
 
     # --------------------------------------------------
-    # Create 4-axis layout: [raw | cbar | mc | cbar]
+    # Create layout 
     # --------------------------------------------------
-    fig = plt.figure(figsize=(10, 4))
-    gs = gridspec.GridSpec(1, 4, width_ratios=[20, 1, 20, 1], figure=fig)
+    fig, axes = plt.subplots(1, 2, figsize=(8, 4), constrained_layout=True)
+    ax1, ax2 = axes
 
-    ax_raw   = fig.add_subplot(gs[0, 0])
-    ax_cbar1 = fig.add_subplot(gs[0, 1])
-    ax_mc    = fig.add_subplot(gs[0, 2])
-    ax_cbar2 = fig.add_subplot(gs[0, 3])
+    for ax in axes:
+        ax.axis("off")
 
     # --------------------------------------------------
-    # Lifetime mode: RGB + fake colorbar
+    # Lifetime mode (RGB images)
     # --------------------------------------------------
     if lifetime_limit is not None:
 
-        # --- Plot images (UNCHANGED) ---
-        ax_raw.imshow(raw)
-        ax_mc.imshow(mc)
+        im1 = ax1.imshow(raw)
+        im2 = ax2.imshow(mc)
 
-        for ax in [ax_raw, ax_mc]:
-            ax.set_xticks([])
-            ax.set_yticks([])
+        # colorbar mapping
+        vmin, vmax = lifetime_limit
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+        sm = mpl.cm.ScalarMappable(cmap='turbo', norm=norm)
+        sm.set_array([])
 
-        # --- Base colormap (jet subset) ---
-        cmap = plt.cm.jet(np.linspace(0, 1, 64))[:, :3]
-        cmap2 = cmap[8:56, :]
+        cbar = fig.colorbar(
+            sm,
+            ax=axes,
+            fraction=0.05,
+            pad=0.08
+        )
+        cbar.set_label("Lifetime (ns)")
 
-        cmap_img = cmap2.reshape((cmap2.shape[0], 1, 3))
-
-        # --- Draw colorbars ---
-        for ax_cbar in [ax_cbar1, ax_cbar2]:
-            ax_cbar.imshow(cmap_img, aspect='auto')
-            ax_cbar.set_xticks([])
-
-            # Keep orientation consistent (top = high index)
-            ax_cbar.set_ylim(0.5, cmap2.shape[0] + 0.5)
-
-            ax_cbar.set_yticks([0, cmap2.shape[0]-1])
-            ax_cbar.set_yticklabels(lifetime_limit[::-1])
-
-            ax_cbar.yaxis.tick_right()
+        # Flip labels only (NOT colors) if shorter lifetime on top
+        if lifetimeLimit[0] < lifetimeLimit[1]:
+            # get current ticks
+            ticks = cbar.get_ticks()
+            # reverse only the labels
+            cbar.set_ticks(ticks)
+            cbar.set_ticklabels([f"{t:.2f}" for t in ticks[::-1]])
 
     # --------------------------------------------------
-    # Intensity mode
+    # Intensity mode (grayscale)
     # --------------------------------------------------
     else:
-        vmin = np.nanpercentile([raw, mc], 2)
-        vmax = np.nanpercentile([raw, mc], 99)
+        vmin = np.nanpercentile([raw, mc], 0.1)
+        vmax = np.nanpercentile([raw, mc], 100)
 
-        im1 = ax_raw.imshow(raw, cmap=cmap_, vmin=vmin, vmax=vmax)
-        plt.colorbar(im1, ax=ax_raw, label=cbar_label)
+        im1 = ax1.imshow(raw, cmap=cmap_, vmin=vmin, vmax=vmax)
+        im2 = ax2.imshow(mc, cmap=cmap_, vmin=vmin, vmax=vmax)
 
-        im2 = ax_mc.imshow(mc, cmap=cmap_, vmin=vmin, vmax=vmax)
-        plt.colorbar(im2, ax=ax_mc, label=cbar_label)
+        cbar = fig.colorbar(
+            im2,
+            ax=axes,
+            fraction=0.05,
+            pad=0.08
+        )
+        cbar.set_label(cbar_label)
 
-        # Remove unused colorbar axes
-        ax_cbar1.remove()
-        ax_cbar2.remove()
+    ax1.set_title("Raw", pad=10)
+    ax2.set_title("MC Manually Offset", pad=10)
 
-    # --- Titles ---
-    ax_raw.set_title("Raw image: " + title_addon)
-    ax_mc.set_title("Manually offset image: " + title_addon)
-
-    plt.tight_layout()
     plt.show()
 
 # user select file to load and get root directory
@@ -275,8 +257,8 @@ for time_idx in range(n_times):
 from suite2p import registration
 from suite2p.io import BinaryFile
 
-data = np.squeeze(group_intensity[z_plane, :, :, :])
-data_rgb = np.squeeze(group_rgblifetime[z_plane, :, :, :, :]) # dims: z_plane, frame, y, x, RBG_chan
+data = np.squeeze(group_intensity[z_plane_to_analyze, :, :, :])
+data_rgb = np.squeeze(group_rgblifetime[z_plane_to_analyze, :, :, :, :]) # dims: z_plane, frame, y, x, RBG_chan
 
 fname = prefix
 Lx, Ly = group_lifetime.shape[-2:] 
@@ -325,15 +307,15 @@ f_reg.close()
 
 # np.save(os.path.join(db['save_path0'], "reg_outputs.npy"), reg_outputs)
 
-#### PLOT raw and S2P MC grayscale image
+####~~~~~~~~~~ PLOT raw and S2P MC grayscale image
 
 # Compute both images
 img1 = np.squeeze(np.mean(to_int16(data), axis=0))
 img2 = reg_outputs['meanImg']
 
 # Set shared range using percentiles for saturation
-vmin = np.percentile([img1, img2], 2)
-vmax = np.percentile([img1, img2], 98)
+vmin = np.percentile([img1, img2], 1)
+vmax = np.percentile([img1, img2], 100)
 
 fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
