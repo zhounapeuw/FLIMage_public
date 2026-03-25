@@ -19,7 +19,7 @@ intensityLimit = [3, 8]
 z_plane = 1
 lifetime_offset = 1.1
 spc_start_idx = 2
-single_file = True
+single_file = False
 
 def to_int16(
     data: np.ndarray,
@@ -214,10 +214,11 @@ group_lifetime = np.zeros((num_z, n_times, x, y))
 group_rgblifetime = np.zeros((num_z, n_times, x, y, 3))
 group_lifetimemap = np.zeros((num_z, n_times, x, y))
 group_intensity = np.zeros((num_z, n_times, x, y))
-for f, flim_file in enumerate(flim_files):
+for time_idx in range(n_times):
 
-    iminfo = FileReader()
-    iminfo.read_imageFile(str(flim_file), True)
+    if not single_file:
+        iminfo = FileReader()
+        iminfo.read_imageFile(str(flim_files[time_idx]), True)
 
     for z_plane in range(num_z):
 
@@ -241,11 +242,11 @@ for f, flim_file in enumerate(flim_files):
 
         grayImage = lifetime_norm * intensity_norm
 
-        group_lifetime[z_plane, f, :, :] = grayImage
+        group_lifetime[z_plane, time_idx, :, :] = grayImage
         iminfo.calculateRGBLifetimeMap(lifetimeLimit = lifetimeLimit, intensityLimit = intensityLimit)
-        group_rgblifetime[z_plane, f, :, :, :] = iminfo.rgbLifetime
-        group_lifetimemap[z_plane, f, :, :] = iminfo.lifetimeMap
-        group_intensity[z_plane, f, :, :] = iminfo.intensity
+        group_rgblifetime[z_plane, time_idx, :, :, :] = iminfo.rgbLifetime
+        group_lifetimemap[z_plane, time_idx, :, :] = iminfo.lifetimeMap
+        group_intensity[z_plane, time_idx, :, :] = iminfo.intensity
 
 
 plt.figure
