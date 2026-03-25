@@ -9,6 +9,7 @@ REQUIREMENT: needs ffmpeg added to environment PATH for video saving to work!
 import tkinter as tk
 from tkinter import filedialog
 from FLIMageFileReader import FileReader
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
@@ -21,12 +22,15 @@ import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
-lifetimeLimit = [1.4, 2]
-intensityLimit = [3, 8]
+lifetimeLimit = [1.6, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = [3, 300]
 z_plane = 1
-lifetime_offset = 1.1
-spc_start_idx = 2
 single_file = True
+
+
+# semi-static vars
+spc_start_idx = 2 
+lifetime_offset = 1.1
 
 def to_int16(
     data: np.ndarray,
@@ -106,7 +110,7 @@ def apply_offsets(data_in, offsets_y, offsets_x):
 
 
 def imshow_raw_mc(raw, mc, title_addon, cbar_label='',
-                  cmap_='gray', lifetime_limit=None, invert_cmap=False):
+                  cmap_='gray', lifetime_limit=None):
     """
     Display raw and motion-corrected images side by side with colorbars.
 
@@ -117,7 +121,6 @@ def imshow_raw_mc(raw, mc, title_addon, cbar_label='',
         cbar_label:     Colorbar label
         cmap_:          Colormap for intensity images
         lifetime_limit: If provided, treats images as lifetime RGB and uses fake colorbar
-        invert_cmap:    If True, reverses colormap direction (also flips RGB channels for lifetime)
     """
 
     from matplotlib import gridspec
@@ -137,11 +140,8 @@ def imshow_raw_mc(raw, mc, title_addon, cbar_label='',
     # Lifetime mode: RGB + fake colorbar
     # --------------------------------------------------
     if lifetime_limit is not None:
-        if invert_cmap:
-            raw = raw[..., ::-1].copy()
-            mc  = mc[..., ::-1].copy()
 
-        # --- Plot images ---
+        # --- Plot images (UNCHANGED) ---
         ax_raw.imshow(raw)
         ax_mc.imshow(mc)
 
@@ -149,21 +149,23 @@ def imshow_raw_mc(raw, mc, title_addon, cbar_label='',
             ax.set_xticks([])
             ax.set_yticks([])
 
-        # --- Colormap subset like MATLAB jet(64)[9:56] ---
+        # --- Base colormap (jet subset) ---
         cmap = plt.cm.jet(np.linspace(0, 1, 64))[:, :3]
         cmap2 = cmap[8:56, :]
-        if invert_cmap:
-            cmap2 = cmap2[::-1]
 
         cmap_img = cmap2.reshape((cmap2.shape[0], 1, 3))
 
-        # --- Draw colorbars as images ---
+        # --- Draw colorbars ---
         for ax_cbar in [ax_cbar1, ax_cbar2]:
             ax_cbar.imshow(cmap_img, aspect='auto')
             ax_cbar.set_xticks([])
+
+            # Keep orientation consistent (top = high index)
             ax_cbar.set_ylim(0.5, cmap2.shape[0] + 0.5)
+
             ax_cbar.set_yticks([0, cmap2.shape[0]-1])
             ax_cbar.set_yticklabels(lifetime_limit[::-1])
+
             ax_cbar.yaxis.tick_right()
 
     # --------------------------------------------------
@@ -356,23 +358,24 @@ imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual
 
 ### do the same but for RGBlifetime image
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
-imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit, invert_cmap=True)
+imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~ MAKE MOVIE
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
+
+norm = mpl.colors.Normalize(vmin=lifetimeLimit[0], vmax=lifetimeLimit[1])
+sm = mpl.cm.ScalarMappable(cmap='turbo', norm=norm)
+sm.set_array([])
 
 # data_rgb and manual_mc_rgb already exist
 # shape: (time, y, x)
 
 T = data_rgb.shape[0]
 
-# global color limits so both videos share the same scale
-vmin = np.nanmin([data_rgb.min(), manual_mc_rgb.min()])
-vmax = np.nanmax([data_rgb.max(), manual_mc_rgb.max()])
-
 fig, axes = plt.subplots(1, 2, figsize=(8, 4))
-
 ax1, ax2 = axes
 
 # remove axes
@@ -388,8 +391,15 @@ ax1.set_title("Raw")
 ax2.set_title("MC Manually Offset")
 
 # colorbar shared
-cbar = fig.colorbar(im2, ax=axes, fraction=0.046, pad=0.04)
-cbar.set_label("RGB lifetime")
+cbar = fig.colorbar(sm, ax=axes, fraction=0.046, pad=0.04)
+cbar.set_label("Lifetime (ns)")
+
+if lifetimeLimit[0] < lifetimeLimit[1]:
+    # get current ticks
+    ticks = cbar.get_ticks()
+    # reverse only the labels
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels([f"{t:.2f}" for t in ticks[::-1]])
 
 def update(frame):
     im1.set_data(data_rgb[frame])
