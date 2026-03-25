@@ -25,7 +25,7 @@ intensityLimit = [3, 8]
 z_plane = 1
 lifetime_offset = 1.1
 spc_start_idx = 2
-single_file = False
+single_file = True
 
 def to_int16(
     data: np.ndarray,
@@ -202,6 +202,7 @@ else:
     flim_files = sorted(root_dir.glob(prefix + "*.flim"))
 
 # load first file to get num planes and x/y dims
+# for single-file mode, this first instance of reading .flim files loads the entire dataset
 iminfo = FileReader()
 iminfo.read_imageFile(str(flim_files[0]), True)
 if iminfo.ZStack:
@@ -222,14 +223,22 @@ group_lifetimemap = np.zeros((num_z, n_times, x, y))
 group_intensity = np.zeros((num_z, n_times, x, y))
 for time_idx in range(n_times):
 
+    # if multi-file, load each .flim timepoint
     if not single_file:
         iminfo = FileReader()
         iminfo.read_imageFile(str(flim_files[time_idx]), True)
 
     for z_plane in range(num_z):
 
+        # i here is a dynamic variable; when in single-file mode, i is referencing the time sample
+        # when in multi-file mode, i encodes the z plane
+        if single_file:
+            i = time_idx
+        else:
+            i = z_plane
+
         iminfo.calculatePage(
-            z_plane,
+            i,
             0,
             0,
             [spc_start_idx, iminfo.n_time[0]],
