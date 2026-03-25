@@ -1,6 +1,12 @@
+"""
+NOTE: .flim file required formats:
+1. multi-file: each .flim file contains data from a particular timepoint, can contain z-stack
+2. single-file: each .flim file contains data from ALL timepoints; Z dimension encodes time, so no z-capabilities
+
+"""
+
 import tkinter as tk
 from tkinter import filedialog
-import FLIMageFileReader
 from FLIMageFileReader import FileReader
 import matplotlib.pyplot as plt
 import numpy as np
@@ -248,13 +254,6 @@ for time_idx in range(n_times):
         group_lifetimemap[z_plane, time_idx, :, :] = iminfo.lifetimeMap
         group_intensity[z_plane, time_idx, :, :] = iminfo.intensity
 
-
-plt.figure
-img = plt.imshow(grayImage) # lifetimeMap rgbLifetime
-#img.set_clim(4,10)
-plt.title('Gray image of last frame')
-plt.colorbar(img)
-plt.show()
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SUITE2P PORTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
