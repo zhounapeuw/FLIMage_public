@@ -305,7 +305,7 @@ reg_outputs = registration.registration_wrapper(
 
 f_reg.close()
 
-# np.save(os.path.join(db['save_path0'], "reg_outputs.npy"), reg_outputs)
+np.save(os.path.join(root_dir, "reg_outputs.npy"), reg_outputs)
 
 ####~~~~~~~~~~ PLOT raw and S2P MC grayscale image
 
