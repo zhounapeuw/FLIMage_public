@@ -3,6 +3,7 @@ NOTE: .flim file required formats:
 1. multi-file: each .flim file contains data from a particular timepoint, can contain z-stack
 2. single-file: each .flim file contains data from ALL timepoints; Z dimension encodes time, so no z-capabilities
 
+REQUIREMENT: needs ffmpeg added to environment PATH for video saving to work!
 """
 
 import tkinter as tk
@@ -195,6 +196,7 @@ p = Path(file_path)
 root_dir = p.parent
 
 if single_file:
+    prefix = os.path.splitext(p.name)[0]
     flim_files = [p]
 else:
     # based on selected file, find similarly named .flim files
