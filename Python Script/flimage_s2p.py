@@ -16,7 +16,7 @@ import matplotlib.colors as mcolors
 
 lifetimeLimit = [1.4, 2]
 intensityLimit = [3, 8]
-z_plane = 4
+z_plane = 1
 lifetime_offset = 1.1
 spc_start_idx = 2
 single_file = True
@@ -195,23 +195,25 @@ else:
     prefix = re.sub(r'\d+\.flim$', '', p.name) # remove trailing digits before .flim to make template to find files
     flim_files = sorted(root_dir.glob(prefix + "*.flim"))
 
-n_files = len(flim_files)
-
 # load first file to get num planes and x/y dims
 iminfo = FileReader()
 iminfo.read_imageFile(str(flim_files[0]), True)
 if iminfo.ZStack:
-    num_z = len(iminfo.acqTime)
+    num_z = len(iminfo.acqTime) # CZ THIS IS NOT THE BEST WAY TO FIND num_Z planes I THINK
 else:
     num_z = 1
+if single_file:
+    n_times = len(iminfo.acqTime)
+else:
+    n_times = len(flim_files)
 iminfo.calculatePage(0, 0, 0, [spc_start_idx, iminfo.n_time[0]], intensityLimit, lifetimeLimit, lifetime_offset)
 x, y = iminfo.rgbLifetime.shape[:2]
 
 # load all files and make grayscale image
-group_lifetime = np.zeros((num_z, n_files, x, y))
-group_rgblifetime = np.zeros((num_z, n_files, x, y, 3))
-group_lifetimemap = np.zeros((num_z, n_files, x, y))
-group_intensity = np.zeros((num_z, n_files, x, y))
+group_lifetime = np.zeros((num_z, n_times, x, y))
+group_rgblifetime = np.zeros((num_z, n_times, x, y, 3))
+group_lifetimemap = np.zeros((num_z, n_times, x, y))
+group_intensity = np.zeros((num_z, n_times, x, y))
 for f, flim_file in enumerate(flim_files):
 
     iminfo = FileReader()
@@ -264,7 +266,6 @@ data = np.squeeze(group_intensity[z_plane, :, :, :])
 data_rgb = np.squeeze(group_rgblifetime[z_plane, :, :, :, :]) # dims: z_plane, frame, y, x, RBG_chan
 
 fname = prefix
-n_time = n_files
 Lx, Ly = group_lifetime.shape[-2:] 
 
 db = {
