@@ -15,6 +15,7 @@ import numpy as np
 from pathlib import Path
 import re
 import suite2p
+from suite2p.registration import register, nonrigid
 import torch
 import os
 
@@ -26,7 +27,6 @@ lifetimeLimit = [1.6, 2] # first entry will be the upper bound (red) of the colo
 intensityLimit = [3, 300]
 z_plane_to_analyze = 0
 single_file = True
-
 
 # semi-static vars
 spc_start_idx = 2 
@@ -302,6 +302,38 @@ reg_outputs = registration.registration_wrapper(
   align_by_chan2=None, save_path= db['save_path0'],
   badframes=None, settings=settings["registration"],
   device=device
+)
+
+
+# Extract what you need
+yoff = reg_outputs["yoff"]
+xoff = reg_outputs["xoff"]
+yoff1 = np.round(reg_outputs.get("yoff1") * 2) / 2  # Round to nearest 0.5 (to mitigate bilinear smoothing)
+xoff1 = np.round(reg_outputs.get("xoff1") * 2) / 2
+
+# You'll also need to reconstruct blocks from scratch or save them
+# Option A: Reconstruct blocks
+Ly, Lx = data.shape[1:]
+blocks = nonrigid.make_blocks(
+    Ly=Ly, 
+    Lx=Lx, 
+    block_size=(32, 32),
+    lpad=3, 
+    subpixel=10
+)
+
+# Convert to torch on CPU
+raw_data_torch = torch.from_numpy(data).float().to(device)
+
+# Apply shifts on CPU
+registered_data = register.shift_frames(
+    fr_torch=raw_data_torch,
+    yoff=torch.from_numpy(yoff).long(),
+    xoff=torch.from_numpy(xoff).long(),
+    yoff1=yoff1,
+    xoff1=xoff1,
+    blocks=blocks,  # Include blocks for nonrigid
+    device=device
 )
 
 f_reg.close()

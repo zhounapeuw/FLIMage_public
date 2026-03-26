@@ -14,27 +14,33 @@ import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 
+data_type = 'intensity'
 lifetimeLimit = [1.6, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [3, 300]
+intensityLimit = [3, 100]# [3, 300]
 # semi-static vars
 spc_start_idx = 2 
 lifetime_offset = 1.1
 
-norm = mpl.colors.Normalize(vmin=lifetimeLimit[0], vmax=lifetimeLimit[1])
-sm = mpl.cm.ScalarMappable(cmap='turbo', norm=norm)
+if data_type == 'intensity':
+    norm = mpl.colors.Normalize(vmin=intensityLimit[0], vmax=intensityLimit[1])
+    colormap_ = 'gray'
+    cbar_label = 'Intensity'
+elif data_type == 'lifetime':
+    norm = mpl.colors.Normalize(vmin=lifetimeLimit[0], vmax=lifetimeLimit[1])
+    colormap_ = 'turbo'
+    cbar_label = 'Lifetime (ns)'
+sm = mpl.cm.ScalarMappable(cmap=colormap_, norm=norm)
 sm.set_array([])
 
 
 root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen'
-raw_path = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap.npy'
+raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\intensity_raw.npy"
 flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\flimage_mc\060825ST01F00T1_allSumaF.flim"
-s2p_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_s2p_mc.npy"
+s2p_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\intensity_rig_nonrig_half.npy"
 
 raw_data = np.squeeze(np.load(raw_path))
 s2p_data = np.load(s2p_path)
@@ -48,6 +54,7 @@ x, y = iminfo.rgbLifetime.shape[:2]
 n_times = len(iminfo.acqTime)
 
 group_rgblifetime = np.zeros((n_times, x, y, 3))
+group_intensity = np.zeros((n_times, x, y))
 for time_idx in range(n_times):
 
     iminfo.calculatePage(
@@ -61,8 +68,16 @@ for time_idx in range(n_times):
         )
     
     group_rgblifetime[time_idx, :, :, :] = iminfo.rgbLifetime
+    group_intensity[time_idx, :, :] = iminfo.intensity
+
+if data_type == 'intensity':
+    flimage_to_plot = group_intensity
+elif data_type == 'lifetime':
+    flimage_to_plot = group_rgblifetime
 
 T = raw_data.shape[0]
+
+#~~~~~~~~~~~~~~~~~~~~~~``
 
 fig, axes = plt.subplots(1, 3, figsize=(12, 4))
 ax1, ax2, ax3 = axes
@@ -72,9 +87,9 @@ for ax in axes:
     ax.axis("off")
 
 # initial frames
-im1 = ax1.imshow(raw_data[0], cmap='turbo')
-im2 = ax2.imshow(group_rgblifetime[0], cmap='turbo')
-im3 = ax3.imshow(s2p_data[0], cmap='turbo')
+im1 = ax1.imshow(raw_data[0], cmap='gray')
+im2 = ax2.imshow(flimage_to_plot[0], cmap='gray')
+im3 = ax3.imshow(s2p_data[0], cmap='gray')
 
 # titles
 ax1.set_title("Raw")
@@ -83,7 +98,7 @@ ax3.set_title("Suite2p MC")
 
 # colorbar shared
 cbar = fig.colorbar(sm, ax=axes, fraction=0.046, pad=0.04)
-cbar.set_label("Lifetime (ns)")
+cbar.set_label(cbar_label)
 
 if lifetimeLimit[0] < lifetimeLimit[1]:
     # get current ticks
@@ -94,9 +109,9 @@ if lifetimeLimit[0] < lifetimeLimit[1]:
 
 def update(frame):
     im1.set_data(raw_data[frame])
-    im2.set_data(group_rgblifetime[frame])
+    im2.set_data(flimage_to_plot[frame])
     im3.set_data(s2p_data[frame])
-    return [im1, im2]
+    return [im1, im2, im3]
 
 anim = FuncAnimation(
     fig,
@@ -108,6 +123,6 @@ anim = FuncAnimation(
 
 # save video
 writer = FFMpegWriter(fps=15)
-anim.save(os.path.join(root_dir,"rgb_lifetime_comparison_raw_flimage_suite2p.mp4"), writer=writer, dpi=200)
+anim.save(os.path.join(root_dir,"intensity_comparison_raw_flimage_suite2p_nonrig.mp4"), writer=writer, dpi=200)
 
 plt.close(fig)
