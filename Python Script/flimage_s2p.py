@@ -22,10 +22,10 @@ import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
-lifetimeLimit = [3, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [3, 45]
-z_plane_to_analyze = 7
-single_file = False
+lifetimeLimit = [1.6, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = [3, 300]
+z_plane_to_analyze = 0
+single_file = True
 
 
 # semi-static vars
@@ -280,7 +280,8 @@ settings['fs'] = 13 # sampling rate of recording, determines binning for cell de
 settings['tau'] = 1.25 # timescale of gcamp to use for deconvolution
 settings['device'] = 'cuda' if torch.cuda.is_available() else 'cpu' # use GPU if available for faster processing
 settings['registration']['reg_tif'] = True
-settings['registration']['nonrigid'] = False
+settings['registration']['nonrigid'] = True
+settings['registration']['block_size'] = [32, 32]
 
 raw_bin_path = os.path.join(root_dir, 'raw_data.bin')
 reg_bin_path = os.path.join(root_dir, 'registered_data.bin')
@@ -341,6 +342,8 @@ imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual
 ### do the same but for RGBlifetime image
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
 imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
+
+# np.save(os.path.join(root_dir,"rbglifetimemap_s2p_mc_rig_nonrig.npy"), data_rgb)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~ MAKE MOVIE
 
