@@ -18,9 +18,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 
-data_type = 'intensity'
+data_type = 'lifetime'
 lifetimeLimit = [1.6, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [3, 100]# [3, 300]
+intensityLimit = [3, 300]# [3, 100] for pure intensity
 # semi-static vars
 spc_start_idx = 2 
 lifetime_offset = 1.1
@@ -38,13 +38,21 @@ sm.set_array([])
 
 
 root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen'
+
+# intensity
 raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\intensity_raw.npy"
 flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\flimage_mc\060825ST01F00T1_allSumaF.flim"
 s2p_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\intensity_rig_nonrig_half.npy"
 
-raw_data = np.squeeze(np.load(raw_path))
-s2p_data = np.load(s2p_path)
+# lifetime
+raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_raw.npy"
+flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\flimage_mc\060825ST01F00T1_allSumaF.flim"
+s2p_rig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_s2p_mc.npy"
+s2p_rig_nonrig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_rig_nonrig_half.npy"
 
+raw_data = np.squeeze(np.load(raw_path))
+s2p_rig_data = np.load(s2p_rig_path)
+s2p_rig_nonrig_data = np.load(s2p_rig_nonrig_path)
 
 iminfo = FileReader()
 iminfo.read_imageFile(flimage_path, True)
@@ -78,51 +86,77 @@ elif data_type == 'lifetime':
 T = raw_data.shape[0]
 
 #~~~~~~~~~~~~~~~~~~~~~~``
+import math
 
-fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-ax1, ax2, ax3 = axes
+# ---- define what you want to plot ----
+data_list = [raw_data, flimage_to_plot, s2p_rig_data, s2p_rig_nonrig_data]  # add/remove freely
+titles = ["Raw", "FLIMage MC", "Suite2p Rig Only", "Suite2p Rig-NonRig"]
 
-# remove axes
-for ax in axes:
+n_plots = len(data_list)
+
+# ---- choose layout ----
+if n_plots <= 3:
+    rows, cols = 1, n_plots
+else:
+    cols = math.ceil(math.sqrt(n_plots))
+    rows = math.ceil(n_plots / cols)
+
+# ---- create subplots ----
+fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows))
+
+# flatten safely
+if isinstance(axes, np.ndarray):
+    axes = axes.ravel()
+else:
+    axes = [axes]
+
+# ---- remove unused axes ----
+for ax in axes[n_plots:]:
     ax.axis("off")
 
-# initial frames
-im1 = ax1.imshow(raw_data[0], cmap='gray')
-im2 = ax2.imshow(flimage_to_plot[0], cmap='gray')
-im3 = ax3.imshow(s2p_data[0], cmap='gray')
+# ---- remove axes visuals ----
+for ax in axes[:n_plots]:
+    ax.axis("off")
 
-# titles
-ax1.set_title("Raw")
-ax2.set_title("FLIMage MC")
-ax3.set_title("Suite2p MC")
+# ---- initial frames ----
+ims = []
+for ax, data in zip(axes, data_list):
+    im = ax.imshow(data[0], cmap=colormap_)
+    ims.append(im)
 
-# colorbar shared
-cbar = fig.colorbar(sm, ax=axes, fraction=0.046, pad=0.04)
+# ---- titles ----
+for ax, title in zip(axes, titles):
+    ax.set_title(title)
+
+# ---- shared colorbar ----
+cbar = fig.colorbar(sm, ax=axes[:n_plots], fraction=0.046, pad=0.04)
 cbar.set_label(cbar_label)
 
 if lifetimeLimit[0] < lifetimeLimit[1]:
-    # get current ticks
     ticks = cbar.get_ticks()
-    # reverse only the labels
     cbar.set_ticks(ticks)
     cbar.set_ticklabels([f"{t:.2f}" for t in ticks[::-1]])
 
+# ---- animation update ----
 def update(frame):
-    im1.set_data(raw_data[frame])
-    im2.set_data(flimage_to_plot[frame])
-    im3.set_data(s2p_data[frame])
-    return [im1, im2, im3]
+    for im, data in zip(ims, data_list):
+        im.set_data(data[frame])
+    return ims
 
 anim = FuncAnimation(
     fig,
     update,
     frames=T,
-    interval=1000/15,  # for preview speed
+    interval=1000/15,
     blit=True
 )
 
-# save video
+# ---- save ----
 writer = FFMpegWriter(fps=15)
-anim.save(os.path.join(root_dir,"intensity_comparison_raw_flimage_suite2p_nonrig.mp4"), writer=writer, dpi=200)
+anim.save(
+    os.path.join(root_dir, "lifetime_comparison_dynamic.mp4"),
+    writer=writer,
+    dpi=200
+)
 
 plt.close(fig)

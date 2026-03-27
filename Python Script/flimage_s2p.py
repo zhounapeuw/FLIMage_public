@@ -304,7 +304,6 @@ reg_outputs = registration.registration_wrapper(
   device=device
 )
 
-
 # Extract what you need
 yoff = reg_outputs["yoff"]
 xoff = reg_outputs["xoff"]
@@ -325,7 +324,7 @@ blocks = nonrigid.make_blocks(
 # Convert to torch on CPU
 raw_data_torch = torch.from_numpy(data).float().to(device)
 
-# Apply shifts on CPU
+# Apply shifts on intensity data
 registered_data = register.shift_frames(
     fr_torch=raw_data_torch,
     yoff=torch.from_numpy(yoff).long(),
@@ -336,6 +335,31 @@ registered_data = register.shift_frames(
     device=device
 )
 
+# ~~~~~~~~~~~ APPLY SHIFTS TO RGB DATA
+
+# Scale factor for your decimal data (0-1 range)
+SCALE_FACTOR = 10000  # or 32767 for int16 max
+
+# Process each channel separately
+rgb_shifted = np.zeros_like(data_rgb)
+for c in range(3):
+    # Scale up to preserve decimals as integers
+    channel_data = torch.from_numpy(data_rgb[..., c] * SCALE_FACTOR).float().to(device)
+    
+    shifted = register.shift_frames(
+        fr_torch=channel_data,
+        yoff=yoff,
+        xoff=xoff,
+        yoff1=yoff1,
+        xoff1=xoff1,
+        blocks=blocks,
+        device=device
+    )
+    
+    # Scale back down
+    rgb_shifted[..., c] = shifted.astype(np.float32) / SCALE_FACTOR
+
+#np.save(os.path.join(root_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
 f_reg.close()
 
 np.save(os.path.join(root_dir, "reg_outputs.npy"), reg_outputs)
