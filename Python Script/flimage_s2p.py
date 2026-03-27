@@ -259,7 +259,7 @@ for time_idx in range(n_times):
 from suite2p import registration
 from suite2p.io import BinaryFile
 
-data = np.squeeze(group_intensity[z_plane_to_analyze, :, :, :])
+data_intensity = np.squeeze(group_intensity[z_plane_to_analyze, :, :, :])
 data_rgb = np.squeeze(group_rgblifetime[z_plane_to_analyze, :, :, :, :]) # dims: z_plane, frame, y, x, RBG_chan
 
 fname = prefix
@@ -287,7 +287,7 @@ settings['registration']['block_size'] = [32, 32]
 
 raw_bin_path = os.path.join(root_dir, 'raw_data.bin')
 reg_bin_path = os.path.join(root_dir, 'registered_data.bin')
-to_int16(data).tofile(raw_bin_path)
+to_int16(data_intensity).tofile(raw_bin_path)
 f_raw = BinaryFile(Ly=Ly, Lx=Lx, filename=raw_bin_path)
 
 # Create a binary file we will write our registered image to
@@ -314,7 +314,7 @@ xoff1 = np.round(reg_outputs.get("xoff1") * 2) / 2
 
 # You'll also need to reconstruct blocks from scratch or save them
 # Option A: Reconstruct blocks
-Ly, Lx = data.shape[1:]
+Ly, Lx = data_intensity.shape[1:]
 blocks = nonrigid.make_blocks(
     Ly=Ly, 
     Lx=Lx, 
@@ -324,7 +324,7 @@ blocks = nonrigid.make_blocks(
 )
 
 # Convert to torch on CPU
-raw_data_torch = torch.from_numpy(data).float().to(device)
+raw_data_torch = torch.from_numpy(data_intensity).float().to(device)
 
 # Apply shifts on intensity data
 registered_data = register.shift_frames(
@@ -361,8 +361,10 @@ for c in range(3):
     # Scale back down
     rgb_shifted[..., c] = shifted.astype(np.float32) / SCALE_FACTOR
 
+np.save(os.path.join(root_dir, "intensity_raw.npy"), data_intensity)
+np.save(os.path.join(root_dir, "rbglifetimemap_raw.npy"), data_rgb)
 np.save(os.path.join(root_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
-np.save(os.path.join(root_dir, "rbglifetimemap_rig_nonrig_half.npy"), data_rgb)
+
 f_reg.close()
 
 np.save(os.path.join(root_dir, "reg_outputs.npy"), reg_outputs)
@@ -370,7 +372,7 @@ np.save(os.path.join(root_dir, "reg_outputs.npy"), reg_outputs)
 ####~~~~~~~~~~ PLOT raw and S2P MC grayscale image
 
 # Compute both images
-img1 = np.squeeze(np.mean(to_int16(data), axis=0))
+img1 = np.squeeze(np.mean(to_int16(data_intensity), axis=0))
 img2 = reg_outputs['meanImg']
 
 # Set shared range using percentiles for saturation
@@ -395,8 +397,8 @@ plt.show()
 
 #~~~~~~~~~ Plot raw and manually-corrected (using s2p offsets) images ~~~~~~~~~~~~
 
-manual_mc = apply_offsets(data, reg_outputs['yoff'], reg_outputs['xoff'])
-imshow_raw_mc(np.squeeze(np.nanmean(data, axis=0)), np.squeeze(np.nanmean(manual_mc, axis=0)), 'Intensity', cbar_label='Intensity', cmap_='gray')
+manual_mc = apply_offsets(data_intensity, reg_outputs['yoff'], reg_outputs['xoff'])
+imshow_raw_mc(np.squeeze(np.nanmean(data_intensity, axis=0)), np.squeeze(np.nanmean(manual_mc, axis=0)), 'Intensity', cbar_label='Intensity', cmap_='gray')
 
 ### do the same but for RGBlifetime image
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
