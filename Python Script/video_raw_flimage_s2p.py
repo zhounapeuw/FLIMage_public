@@ -38,17 +38,19 @@ sm.set_array([])
 
 
 root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen'
+output_dir = os.path.join(root_dir, 's2p_analysis')
+os.makedirs(output_dir, exist_ok=True)
 
 # intensity
 raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\intensity_raw.npy"
 flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\flimage_mc\060825ST01F00T1_allSumaF.flim"
-s2p_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\intensity_rig_nonrig_half.npy"
+s2p_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\intensity_rig_nonrig_half.npy"
 
 # lifetime
 raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_raw.npy"
 flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\flimage_mc\060825ST01F00T1_allSumaF.flim"
-s2p_rig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_s2p_mc.npy"
-s2p_rig_nonrig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_rig_nonrig_half.npy"
+s2p_rig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\rbglifetimemap_s2p_mc.npy"
+s2p_rig_nonrig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\rbglifetimemap_rig_nonrig_half.npy"
 
 raw_data = np.squeeze(np.load(raw_path))
 s2p_rig_data = np.load(s2p_rig_path)

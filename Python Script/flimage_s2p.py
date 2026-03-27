@@ -178,6 +178,8 @@ def imshow_raw_mc(raw, mc, title_addon, cbar_label='',
 file_path = filedialog.askopenfilename()
 p = Path(file_path)
 root_dir = p.parent
+output_dir = os.path.join(root_dir, 's2p_analysis')
+os.makedirs(output_dir, exist_ok=True)
 
 if single_file:
     prefix = os.path.splitext(p.name)[0]
@@ -359,7 +361,8 @@ for c in range(3):
     # Scale back down
     rgb_shifted[..., c] = shifted.astype(np.float32) / SCALE_FACTOR
 
-#np.save(os.path.join(root_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
+np.save(os.path.join(root_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
+np.save(os.path.join(root_dir, "rbglifetimemap_rig_nonrig_half.npy"), data_rgb)
 f_reg.close()
 
 np.save(os.path.join(root_dir, "reg_outputs.npy"), reg_outputs)
