@@ -23,10 +23,10 @@ import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
-lifetimeLimit = [1.6, 2.0] # Helen [1.6, 2.0] first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [3, 300] # Helen [3, 300] 
+lifetimeLimit = [1.4, 2] # Helen [1.6, 2.0] first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = [0, 30] # Helen [3, 300] 
 z_plane_to_analyze = 0
-single_file = True
+single_file = False
 
 # semi-static vars
 spc_start_idx = 2 
@@ -282,7 +282,7 @@ settings['fs'] = 13 # sampling rate of recording, determines binning for cell de
 settings['tau'] = 1.25 # timescale of gcamp to use for deconvolution
 settings['device'] = 'cuda' if torch.cuda.is_available() else 'cpu' # use GPU if available for faster processing
 settings['registration']['reg_tif'] = True
-settings['registration']['nonrigid'] = False
+settings['registration']['nonrigid'] = True
 settings['registration']['block_size'] = [32, 32]
 
 raw_bin_path = os.path.join(root_dir, 'raw_data.bin')
@@ -403,13 +403,13 @@ imshow_raw_mc(np.squeeze(np.nanmean(data_intensity, axis=0)), np.squeeze(np.nanm
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
 imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
 
-np.save(os.path.join(output_dir,"intensity_s2p_rig.npy"), manual_mc)
+np.save(os.path.join(output_dir,"intensity_s2p_rig_nonrig_half.npy"), manual_mc)
 np.save(os.path.join(output_dir, "intensity_raw.npy"), data_intensity)
 np.save(os.path.join(output_dir, "rbglifetimemap_raw.npy"), data_rgb)
 # np.save(os.path.join(output_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
-np.save(os.path.join(output_dir, "rbglifetimemap_rig.npy"), rgb_shifted)
+np.save(os.path.join(output_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
 
-np.save(os.path.join(output_dir, "reg_outputs_rig.npy"), reg_outputs)
+np.save(os.path.join(output_dir, "reg_outputs_rig_nonrig_half.npy"), reg_outputs)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~ MAKE MOVIE
 

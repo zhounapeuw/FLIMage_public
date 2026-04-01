@@ -23,9 +23,10 @@ make_movie = True
 spc_start_idx = 2 
 lifetime_offset = 1.1
 
-basename = 'helen'
-params_file = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\flimage_s2p_params.csv"
+basename = 'L519A'
 root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen'
+
+params_file = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\flimage_s2p_params.csv"
 output_path = os.path.join(root_dir, 's2p_analysis')
 
 params = pd.read_csv(params_file)
