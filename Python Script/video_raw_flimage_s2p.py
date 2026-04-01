@@ -18,14 +18,14 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 
 data_type = 'lifetime'
-make_movie = False
+make_movie = True
 # semi-static vars
 spc_start_idx = 2 
 lifetime_offset = 1.1
 
-basename = '42'
+basename = 'helen'
 params_file = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\flimage_s2p_params.csv"
-root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5'
+root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen'
 output_path = os.path.join(root_dir, 's2p_analysis')
 
 params = pd.read_csv(params_file)
@@ -43,7 +43,7 @@ s2p_rig_path_rbg = params['lifetime_s2p_rig'][params['basename'] == basename].il
 s2p_rig_nonrig_path_rbg = params['lifetime_s2p_rig_nonrig'][params['basename'] == basename].iloc[0]
 
 # flimage path (contains both lifetime and intensity)
-flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5\42_morphine001_concat_aligned.flim"
+flimage_path = params['flimage_path'][params['basename'] == basename].iloc[0]
 
 # currently only rbg data considered
 raw_data = np.squeeze(np.load(raw_path_rbg))

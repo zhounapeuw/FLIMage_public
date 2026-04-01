@@ -23,10 +23,10 @@ import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
-lifetimeLimit = [1.4, 2.0] # Helen [1.6, 2.0] first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [0, 15] # Helen [3, 300] 
-z_plane_to_analyze = 4
-single_file = False
+lifetimeLimit = [1.6, 2.0] # Helen [1.6, 2.0] first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = [3, 300] # Helen [3, 300] 
+z_plane_to_analyze = 0
+single_file = True
 
 # semi-static vars
 spc_start_idx = 2 
