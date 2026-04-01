@@ -24,7 +24,7 @@ spc_start_idx = 2
 lifetime_offset = 1.1
 
 basename = 'L519A'
-root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen'
+root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\L519A\slice4'
 
 params_file = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\flimage_s2p_params.csv"
 output_path = os.path.join(root_dir, 's2p_analysis')

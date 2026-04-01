@@ -24,9 +24,10 @@ from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
 lifetimeLimit = [1.4, 2] # Helen [1.6, 2.0] first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [0, 30] # Helen [3, 300] 
+intensityLimit = [0, 50] # Helen [3, 300] 
 z_plane_to_analyze = 0
 single_file = False
+make_movie = False
 
 # semi-static vars
 spc_start_idx = 2 
@@ -282,7 +283,7 @@ settings['fs'] = 13 # sampling rate of recording, determines binning for cell de
 settings['tau'] = 1.25 # timescale of gcamp to use for deconvolution
 settings['device'] = 'cuda' if torch.cuda.is_available() else 'cpu' # use GPU if available for faster processing
 settings['registration']['reg_tif'] = True
-settings['registration']['nonrigid'] = True
+settings['registration']['nonrigid'] = False
 settings['registration']['block_size'] = [32, 32]
 
 raw_bin_path = os.path.join(root_dir, 'raw_data.bin')
@@ -403,73 +404,75 @@ imshow_raw_mc(np.squeeze(np.nanmean(data_intensity, axis=0)), np.squeeze(np.nanm
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
 imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
 
-np.save(os.path.join(output_dir,"intensity_s2p_rig_nonrig_half.npy"), manual_mc)
+np.save(os.path.join(output_dir,"intensity_s2p_rig.npy"), manual_mc)
 np.save(os.path.join(output_dir, "intensity_raw.npy"), data_intensity)
 np.save(os.path.join(output_dir, "rbglifetimemap_raw.npy"), data_rgb)
 # np.save(os.path.join(output_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
-np.save(os.path.join(output_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
+np.save(os.path.join(output_dir, "rbglifetimemap_rig.npy"), rgb_shifted)
 
-np.save(os.path.join(output_dir, "reg_outputs_rig_nonrig_half.npy"), reg_outputs)
+np.save(os.path.join(output_dir, "reg_outputs_rig.npy"), reg_outputs)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~ MAKE MOVIE
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, FFMpegWriter
+if make_movie:
 
-norm = mpl.colors.Normalize(vmin=lifetimeLimit[0], vmax=lifetimeLimit[1])
-sm = mpl.cm.ScalarMappable(cmap='turbo', norm=norm)
-sm.set_array([])
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation, FFMpegWriter
 
-# data_rgb and manual_mc_rgb already exist
-# shape: (time, y, x)
+    norm = mpl.colors.Normalize(vmin=lifetimeLimit[0], vmax=lifetimeLimit[1])
+    sm = mpl.cm.ScalarMappable(cmap='turbo', norm=norm)
+    sm.set_array([])
 
-T = data_rgb.shape[0]
+    # data_rgb and manual_mc_rgb already exist
+    # shape: (time, y, x)
 
-fig, axes = plt.subplots(1, 2, figsize=(8, 4))
-ax1, ax2 = axes
+    T = data_rgb.shape[0]
 
-# remove axes
-for ax in axes:
-    ax.axis("off")
+    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+    ax1, ax2 = axes
 
-# initial frames
-im1 = ax1.imshow(data_rgb[0], cmap='turbo')
-im2 = ax2.imshow(manual_mc_rgb[0], cmap='turbo')
+    # remove axes
+    for ax in axes:
+        ax.axis("off")
 
-# titles
-ax1.set_title("Raw")
-ax2.set_title("MC Manually Offset")
+    # initial frames
+    im1 = ax1.imshow(data_rgb[0], cmap='turbo')
+    im2 = ax2.imshow(manual_mc_rgb[0], cmap='turbo')
 
-# colorbar shared
-cbar = fig.colorbar(sm, ax=axes, fraction=0.046, pad=0.04)
-cbar.set_label("Lifetime (ns)")
+    # titles
+    ax1.set_title("Raw")
+    ax2.set_title("MC Manually Offset")
 
-if lifetimeLimit[0] < lifetimeLimit[1]:
-    # get current ticks
-    ticks = cbar.get_ticks()
-    # reverse only the labels
-    cbar.set_ticks(ticks)
-    cbar.set_ticklabels([f"{t:.2f}" for t in ticks[::-1]])
+    # colorbar shared
+    cbar = fig.colorbar(sm, ax=axes, fraction=0.046, pad=0.04)
+    cbar.set_label("Lifetime (ns)")
 
-def update(frame):
-    im1.set_data(data_rgb[frame])
-    im2.set_data(manual_mc_rgb[frame])
-    return [im1, im2]
+    if lifetimeLimit[0] < lifetimeLimit[1]:
+        # get current ticks
+        ticks = cbar.get_ticks()
+        # reverse only the labels
+        cbar.set_ticks(ticks)
+        cbar.set_ticklabels([f"{t:.2f}" for t in ticks[::-1]])
 
-anim = FuncAnimation(
-    fig,
-    update,
-    frames=T,
-    interval=1000/15,  # for preview speed
-    blit=True
-)
+    def update(frame):
+        im1.set_data(data_rgb[frame])
+        im2.set_data(manual_mc_rgb[frame])
+        return [im1, im2]
 
-# save video
-writer = FFMpegWriter(fps=15)
-anim.save(os.path.join(output_dir,"rgb_lifetime_comparison.mp4"), writer=writer, dpi=200)
+    anim = FuncAnimation(
+        fig,
+        update,
+        frames=T,
+        interval=1000/15,  # for preview speed
+        blit=True
+    )
 
-plt.close(fig)
+    # save video
+    writer = FFMpegWriter(fps=15)
+    anim.save(os.path.join(output_dir,"rgb_lifetime_comparison.mp4"), writer=writer, dpi=200)
+
+    plt.close(fig)
 
 
 
