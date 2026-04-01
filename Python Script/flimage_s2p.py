@@ -25,7 +25,7 @@ import matplotlib.colors as mcolors
 
 lifetimeLimit = [1.4, 2.0] # Helen [1.6, 2.0] first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
 intensityLimit = [0, 15] # Helen [3, 300] 
-z_plane_to_analyze = 0
+z_plane_to_analyze = 4
 single_file = False
 
 # semi-static vars
@@ -282,7 +282,7 @@ settings['fs'] = 13 # sampling rate of recording, determines binning for cell de
 settings['tau'] = 1.25 # timescale of gcamp to use for deconvolution
 settings['device'] = 'cuda' if torch.cuda.is_available() else 'cpu' # use GPU if available for faster processing
 settings['registration']['reg_tif'] = True
-settings['registration']['nonrigid'] = True
+settings['registration']['nonrigid'] = False
 settings['registration']['block_size'] = [32, 32]
 
 raw_bin_path = os.path.join(root_dir, 'raw_data.bin')
@@ -364,13 +364,9 @@ for c in range(3):
     # Scale back down
     rgb_shifted[..., c] = shifted.astype(np.float32) / SCALE_FACTOR
 
-np.save(os.path.join(root_dir, "intensity_raw.npy"), data_intensity)
-np.save(os.path.join(root_dir, "rbglifetimemap_raw.npy"), data_rgb)
-np.save(os.path.join(root_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
 
 f_reg.close()
 
-np.save(os.path.join(root_dir, "reg_outputs.npy"), reg_outputs)
 
 ####~~~~~~~~~~ PLOT raw and S2P MC grayscale image
 
@@ -407,7 +403,13 @@ imshow_raw_mc(np.squeeze(np.nanmean(data_intensity, axis=0)), np.squeeze(np.nanm
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
 imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
 
-np.save(os.path.join(root_dir,"intensity_s2p_rig_nonrig_half.npy"), manual_mc)
+np.save(os.path.join(output_dir,"intensity_s2p_rig.npy"), manual_mc)
+np.save(os.path.join(output_dir, "intensity_raw.npy"), data_intensity)
+np.save(os.path.join(output_dir, "rbglifetimemap_raw.npy"), data_rgb)
+# np.save(os.path.join(output_dir, "rbglifetimemap_rig_nonrig_half.npy"), rgb_shifted)
+np.save(os.path.join(output_dir, "rbglifetimemap_rig.npy"), rgb_shifted)
+
+np.save(os.path.join(output_dir, "reg_outputs_rig.npy"), reg_outputs)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~ MAKE MOVIE
 
@@ -465,7 +467,7 @@ anim = FuncAnimation(
 
 # save video
 writer = FFMpegWriter(fps=15)
-anim.save(os.path.join(root_dir,"rgb_lifetime_comparison.mp4"), writer=writer, dpi=200)
+anim.save(os.path.join(output_dir,"rgb_lifetime_comparison.mp4"), writer=writer, dpi=200)
 
 plt.close(fig)
 
