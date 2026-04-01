@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 import os
+import pandas as pd
 
 import matplotlib.animation as animation
 from matplotlib.colors import Normalize
@@ -16,12 +17,37 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 
 data_type = 'lifetime'
-lifetimeLimit = [1.4, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [0, 15]# [3, 100] for pure intensity
 make_movie = False
 # semi-static vars
 spc_start_idx = 2 
 lifetime_offset = 1.1
+
+basename = '42'
+params_file = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\flimage_s2p_params.csv"
+root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5'
+output_path = os.path.join(root_dir, 's2p_analysis')
+
+params = pd.read_csv(params_file)
+
+# automatically obtain lifetime and intensity limits from params csv
+lifetimeLimit = params['lifetime_limit'][params['basename'] == basename].iloc[0] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = params['intensity_limit'][params['basename'] == basename].iloc[0] # [3, 100] for pure intensity
+
+# automatically obtain path for data to load using the params csv
+# intensity
+raw_path_intensity = params['intensity_raw'][params['basename'] == basename].iloc[0]
+# lifetime
+raw_path_rbg = params['lifetime_raw'][params['basename'] == basename].iloc[0]
+s2p_rig_path_rbg = params['lifetime_s2p_rig'][params['basename'] == basename].iloc[0]
+s2p_rig_nonrig_path_rbg = params['lifetime_s2p_rig_nonrig'][params['basename'] == basename].iloc[0]
+
+# flimage path (contains both lifetime and intensity)
+flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5\42_morphine001_concat_aligned.flim"
+
+# currently only rbg data considered
+raw_data = np.squeeze(np.load(raw_path_rbg))
+s2p_rig_data = np.load(s2p_rig_path_rbg)
+s2p_rig_nonrig_data = np.load(s2p_rig_nonrig_path_rbg)
 
 if data_type == 'intensity':
     norm = mpl.colors.Normalize(vmin=intensityLimit[0], vmax=intensityLimit[1])
@@ -34,25 +60,7 @@ elif data_type == 'lifetime':
 sm = mpl.cm.ScalarMappable(cmap=colormap_, norm=norm)
 sm.set_array([])
 
-
-root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5'
-output_path = os.path.join(root_dir, 's2p_analysis')
-
-# intensity
-raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5\s2p_analysis\intensity_raw.npy"
-
-# lifetime
-raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5\s2p_analysis\rbglifetimemap_raw.npy"
-s2p_rig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5\s2p_analysis\rbglifetimemap_rig.npy"
-s2p_rig_nonrig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5\s2p_analysis\rbglifetimemap_rig_nonrig_half.npy"
-
-# flimage path (contains both lifetime and intensity)
-flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\landon\42\slice5\42_morphine001_concat_aligned.flim"
-
-
-raw_data = np.squeeze(np.load(raw_path))
-s2p_rig_data = np.load(s2p_rig_path)
-s2p_rig_nonrig_data = np.load(s2p_rig_nonrig_path)
+#~~~~~~~~~~~~` start processing`
 
 iminfo = FileReader()
 iminfo.read_imageFile(flimage_path, True)
