@@ -7,6 +7,7 @@ import numpy as np
 from pathlib import Path
 import os
 import pandas as pd
+import ast
 
 import matplotlib.animation as animation
 from matplotlib.colors import Normalize
@@ -30,8 +31,8 @@ output_path = os.path.join(root_dir, 's2p_analysis')
 params = pd.read_csv(params_file)
 
 # automatically obtain lifetime and intensity limits from params csv
-lifetimeLimit = params['lifetime_limit'][params['basename'] == basename].iloc[0] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = params['intensity_limit'][params['basename'] == basename].iloc[0] # [3, 100] for pure intensity
+lifetimeLimit = np.array(ast.literal_eval(params['lifetime_limit'][params['basename'] == basename].iloc[0])) # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = np.array(ast.literal_eval(params['intensity_limit'][params['basename'] == basename].iloc[0])) # [3, 100] for pure intensity
 
 # automatically obtain path for data to load using the params csv
 # intensity
