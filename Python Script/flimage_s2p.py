@@ -23,10 +23,10 @@ import matplotlib.animation as animation
 from matplotlib.colors import Normalize
 import matplotlib.colors as mcolors
 
-lifetimeLimit = [1.6, 2] # first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
-intensityLimit = [3, 300]
+lifetimeLimit = [1.4, 2.0] # Helen [1.6, 2.0] first entry will be the upper bound (red) of the colorbar, 2nd is the lower bound (blue)
+intensityLimit = [0, 15] # Helen [3, 300] 
 z_plane_to_analyze = 0
-single_file = True
+single_file = False
 
 # semi-static vars
 spc_start_idx = 2 
@@ -309,8 +309,11 @@ reg_outputs = registration.registration_wrapper(
 # Extract what you need
 yoff = reg_outputs["yoff"]
 xoff = reg_outputs["xoff"]
-yoff1 = np.round(reg_outputs.get("yoff1") * 2) / 2  # Round to nearest 0.5 (to mitigate bilinear smoothing)
-xoff1 = np.round(reg_outputs.get("xoff1") * 2) / 2
+if settings['registration']['nonrigid']:
+    yoff1 = np.round(reg_outputs.get("yoff1") * 2) / 2  # Round to nearest 0.5 (to mitigate bilinear smoothing)
+    xoff1 = np.round(reg_outputs.get("xoff1") * 2) / 2
+else:
+    yoff1 = None; xoff1 = None
 
 # You'll also need to reconstruct blocks from scratch or save them
 # Option A: Reconstruct blocks
@@ -404,7 +407,7 @@ imshow_raw_mc(np.squeeze(np.nanmean(data_intensity, axis=0)), np.squeeze(np.nanm
 manual_mc_rgb = apply_offsets(data_rgb, reg_outputs['yoff'], reg_outputs['xoff'])
 imshow_raw_mc(np.squeeze(np.nanmean(data_rgb, axis=0)), np.squeeze(np.nanmean(manual_mc_rgb, axis=0)), "Lifetime", cmap_='turbo', lifetime_limit=lifetimeLimit)
 
-# np.save(os.path.join(root_dir,"rbglifetimemap_s2p_mc_rig_nonrig.npy"), data_rgb)
+np.save(os.path.join(root_dir,"intensity_s2p_rig_nonrig_half.npy"), manual_mc)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~ MAKE MOVIE
 

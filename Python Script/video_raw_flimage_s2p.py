@@ -38,16 +38,14 @@ sm.set_array([])
 
 
 root_dir = r'C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen'
-output_dir = os.path.join(root_dir, 's2p_analysis')
-os.makedirs(output_dir, exist_ok=True)
 
 # intensity
-raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\intensity_raw.npy"
+raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\intensity_raw.npy"
 flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\flimage_mc\060825ST01F00T1_allSumaF.flim"
 s2p_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\intensity_rig_nonrig_half.npy"
 
 # lifetime
-raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\rbglifetimemap_raw.npy"
+raw_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\rbglifetimemap_raw.npy"
 flimage_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\flimage_mc\060825ST01F00T1_allSumaF.flim"
 s2p_rig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\rbglifetimemap_s2p_mc.npy"
 s2p_rig_nonrig_path = r"C:\Users\charl\OHSU Dropbox\Charles Zhou\CZ\2pFLIM\helen\s2p_analysis\rbglifetimemap_rig_nonrig_half.npy"
@@ -95,6 +93,65 @@ data_list = [raw_data, flimage_to_plot, s2p_rig_data, s2p_rig_nonrig_data]  # ad
 titles = ["Raw", "FLIMage MC", "Suite2p Rig Only", "Suite2p Rig-NonRig"]
 
 n_plots = len(data_list)
+
+#~~~~~~~~~~~~~~~~~~~~ make mean images
+
+
+# ---- average across time (axis=0 assumes [T, Y, X]) ----
+avg_data_list = [np.mean(data, axis=0) for data in data_list]
+
+# ---- choose layout ----
+if n_plots <= 3:
+    rows, cols = 1, n_plots
+else:
+    cols = math.ceil(math.sqrt(n_plots))
+    rows = math.ceil(n_plots / cols)
+
+# ---- create subplots ----
+fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), constrained_layout=True)
+
+# flatten safely
+if isinstance(axes, np.ndarray):
+    axes = axes.ravel()
+else:
+    axes = [axes]
+
+# ---- remove unused axes ----
+for ax in axes[n_plots:]:
+    ax.axis("off")
+
+# ---- remove axes visuals ----
+for ax in axes[:n_plots]:
+    ax.axis("off")
+
+# ---- plot averaged images ----
+ims = []
+for ax, data in zip(axes, avg_data_list):
+    im = ax.imshow(data, cmap=colormap_)
+    ims.append(im)
+
+# ---- titles ----
+for ax, title in zip(axes, titles):
+    ax.set_title(title)
+
+# ---- shared colorbar ----
+cbar = fig.colorbar(sm, ax=axes[:n_plots], fraction=0.046, pad=0.04)
+cbar.set_label(cbar_label)
+
+if lifetimeLimit[0] < lifetimeLimit[1]:
+    ticks = cbar.get_ticks()
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels([f"{t:.2f}" for t in ticks[::-1]])
+
+# ---- save static image instead of animation ----
+plt.savefig(
+    os.path.join(root_dir, "lifetime_comparison_mean.png"),
+    dpi=200
+)
+
+plt.close(fig)
+
+#~~~~~~~~~~~~~~~~~~~~ make movie
 
 # ---- choose layout ----
 if n_plots <= 3:
