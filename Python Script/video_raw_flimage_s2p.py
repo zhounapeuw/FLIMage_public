@@ -154,7 +154,7 @@ if lifetimeLimit[0] < lifetimeLimit[1]:
 
 # ---- save static image instead of animation ----
 plt.savefig(
-    os.path.join(root_dir, "lifetime_comparison_mean.png"),
+    os.path.join(output_path, "lifetime_comparison_mean.png"),
     dpi=200
 )
 
@@ -221,9 +221,9 @@ if make_movie:
     )
 
     # ---- save ----
-    writer = FFMpegWriter(fps=15)
+    writer = FFMpegWriter(fps=10)
     anim.save(
-        os.path.join(root_dir, "lifetime_comparison_dynamic.mp4"),
+        os.path.join(output_path, "lifetime_comparison_movie.mp4"),
         writer=writer,
         dpi=200
     )
